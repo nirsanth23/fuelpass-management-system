@@ -1,7 +1,7 @@
-import RoleSelection from "./pages/RoleSelection";
+import AppRoutes from "./routes/AppRoutes";
 
 function App() {
-  return <RoleSelection />;
+  return <AppRoutes />;
 }
 
 export default App;
