@@ -76,7 +76,7 @@ const RoleCard = ({ role, onNavigate }) => {
         </h3>
 
         {/* Description */}
-        <p className="mb-8 text-sm leading-7 text-white/65">
+        <p className="mb-12 text-xs leading-7 text-white/65">
           {role.description}
         </p>
 
