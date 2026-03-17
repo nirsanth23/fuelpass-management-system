@@ -1,0 +1,18 @@
+import { Routes, Route } from "react-router-dom";
+import RoleSelection from "../pages/RoleSelection";
+import UserLogin from "../pages/user/UserLogin";
+import UserRegister from "../pages/user/UserRegister";
+import AdminLogin from "../pages/admin/AdminLogin";
+import FuelStationLogin from "../pages/fuelstation/FuelStationLogin";
+
+export default function AppRoutes() {
+  return (
+    <Routes>
+      <Route path="/" element={<RoleSelection />} />
+      <Route path="/user/login" element={<UserLogin />} />
+      <Route path="/user/register" element={<UserRegister />} />
+      <Route path="/admin/login" element={<AdminLogin />} />
+      <Route path="/fuelstation/login" element={<FuelStationLogin />} />
+    </Routes>
+  );
+}
