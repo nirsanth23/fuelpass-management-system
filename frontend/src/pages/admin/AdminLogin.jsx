@@ -36,7 +36,9 @@ export default function AdminLogin() {
         </button>
 
         <h2 className="text-3xl font-bold mb-6 text-center">
-          Admin Login
+          <span className="bg-gradient-to-r from-fuchsia-400 via-purple-500 to-indigo-600 bg-clip-text text-transparent">
+            Admin Login
+          </span>
         </h2>
 
         <form
@@ -84,8 +86,8 @@ export default function AdminLogin() {
             type="submit"
             disabled={!isLoginValid}
             className={`w-full py-3 rounded-lg font-semibold transition ${isLoginValid
-                ? "bg-gradient-to-r from-purple-500 to-violet-600 cursor-pointer"
-                : "bg-gray-500 cursor-not-allowed"
+              ? "bg-gradient-to-r from-purple-500 to-violet-600 cursor-pointer"
+              : "bg-gray-500 cursor-not-allowed"
               }`}
           >
             Login

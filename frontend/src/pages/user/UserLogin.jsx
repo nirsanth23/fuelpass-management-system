@@ -142,7 +142,11 @@ export default function UserLogin() {
           <X size={20} strokeWidth={3} />
         </button>
 
-        <h2 className="text-3xl font-bold mb-6 text-center">User Login</h2>
+        <h2 className="text-3xl font-bold mb-6 text-center">
+          <span className="bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-600 bg-clip-text text-transparent">
+            User Login
+          </span>
+        </h2>
 
         <form
           className="space-y-5"
