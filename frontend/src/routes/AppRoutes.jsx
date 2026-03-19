@@ -2,8 +2,12 @@ import { Routes, Route } from "react-router-dom";
 import RoleSelection from "../pages/RoleSelection";
 import UserLogin from "../pages/user/UserLogin";
 import UserRegister from "../pages/user/UserRegister";
+import UserDashboard from "../pages/user/UserDashboard";
 import AdminLogin from "../pages/admin/AdminLogin";
 import FuelStationLogin from "../pages/fuelstation/FuelStationLogin";
+
+import AdminDashboard from "../pages/admin/AdminDashboard";
+import FuelStationDashboard from "../pages/fuelstation/FuelStationDashboard";
 
 export default function AppRoutes() {
   return (
@@ -11,8 +15,11 @@ export default function AppRoutes() {
       <Route path="/" element={<RoleSelection />} />
       <Route path="/user/login" element={<UserLogin />} />
       <Route path="/user/register" element={<UserRegister />} />
+      <Route path="/user/dashboard" element={<UserDashboard />} />
       <Route path="/admin/login" element={<AdminLogin />} />
+      <Route path="/admin/dashboard" element={<AdminDashboard />} />
       <Route path="/fuelstation/login" element={<FuelStationLogin />} />
+      <Route path="/fuelstation/dashboard" element={<FuelStationDashboard />} />
     </Routes>
   );
 }
