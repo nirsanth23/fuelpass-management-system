@@ -174,7 +174,6 @@ const register = async (req, res) => {
     return res.status(500).json({ message: getDbErrorMessage(error) });
   }
 };
-
 const getMe = async (req, res) => {
   try {
     const user = await findUserByEmail(req.user.email);
@@ -189,9 +188,46 @@ const getMe = async (req, res) => {
   }
 };
 
+const stationLogin = async (req, res) => {
+  const { stationId, password } = req.body;
+
+  if (!stationId || !password) {
+    return res.status(400).json({ message: "Station ID and password are required." });
+  }
+
+  try {
+    const { findStationById } = require("../models/stationModel");
+    const station = await findStationById(stationId);
+
+    if (!station) {
+      return res.status(401).json({ message: "Invalid Station ID or password." });
+    }
+
+    if (station.password !== password) {
+      return res.status(401).json({ message: "Invalid Station ID or password." });
+    }
+
+    const token = jwt.sign(
+      { stationId: station.station_id, role: "fuel_station" },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    return res.json({
+      message: "Station login successful",
+      token,
+      stationId: station.station_id,
+    });
+  } catch (error) {
+    console.error("stationLogin Error:", error);
+    return res.status(500).json({ message: getDbErrorMessage(error) });
+  }
+};
+
 module.exports = {
   sendOtp,
   verifyOtp,
   register,
   getMe,
+  stationLogin,
 };

@@ -37,8 +37,19 @@ const markNotificationResolved = (id) => {
   });
 };
 
+const getNotificationById = (id) => {
+  return new Promise((resolve, reject) => {
+    const query = `SELECT * FROM admin_notifications WHERE id = ?`;
+    db.query(query, [id], (err, results) => {
+      if (err) return reject(err);
+      resolve(results[0]);
+    });
+  });
+};
+
 module.exports = {
   createNotification,
   getPendingNotifications,
-  markNotificationResolved
+  markNotificationResolved,
+  getNotificationById,
 };

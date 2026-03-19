@@ -62,15 +62,17 @@ export default function AdminDashboard() {
     <div className="min-h-screen bg-[#0B1220] text-white p-8">
       <div className="max-w-7xl mx-auto">
         <div className="flex justify-between items-center mb-10">
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-fuchsia-400 to-purple-600 bg-clip-text text-transparent">
-            Admin Dashboard
+          <h1 className="text-3xl font-bold">
+            <span className="bg-gradient-to-r from-fuchsia-400 via-purple-500 to-indigo-600 bg-clip-text text-transparent">
+              Admin Dashboard
+            </span>
           </h1>
-          
+
           <div className="flex items-center gap-4">
-            
+
             {/* Notification Bell */}
             <div className="relative">
-              <button 
+              <button
                 onClick={() => setShowNotifications(!showNotifications)}
                 className="relative p-2 bg-white/5 hover:bg-white/10 rounded-full transition cursor-pointer"
               >
@@ -87,9 +89,9 @@ export default function AdminDashboard() {
                 <div className="absolute right-0 mt-2 w-80 bg-[#16213A] border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden">
                   <div className="flex justify-between items-center p-4 border-b border-white/10 bg-white/5">
                     <h3 className="font-semibold text-fuchsia-300">Notifications</h3>
-                    <button onClick={() => setShowNotifications(false)} className="text-gray-400 hover:text-white cursor-pointer"><X size={16}/></button>
+                    <button onClick={() => setShowNotifications(false)} className="text-gray-400 hover:text-white cursor-pointer"><X size={16} /></button>
                   </div>
-                  
+
                   <div className="max-h-[400px] overflow-y-auto">
                     {notifications.length === 0 ? (
                       <div className="p-4 text-center text-gray-400 text-sm">No new requests</div>
@@ -101,21 +103,20 @@ export default function AdminDashboard() {
                               {n.type === 'forgot_password' ? 'Password Reset' : 'Alert'}
                             </span>
                             <span className="text-xs text-gray-400">
-                              {new Date(n.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                              {new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </span>
                           </div>
                           <p className="text-sm font-semibold">{n.station_username}</p>
                           <p className="text-xs text-gray-400 mt-1">Email: {n.email}</p>
                           <p className="text-xs text-gray-400">Phone: {n.phone_number}</p>
-                          
-                          <button 
+
+                          <button
                             onClick={() => handleApprove(n)}
                             disabled={loadingId === n.id}
-                            className={`mt-3 w-full py-2 text-sm font-semibold rounded flex items-center justify-center gap-2 transition ${
-                              loadingId === n.id 
-                                ? "bg-gray-600 text-gray-300 cursor-not-allowed" 
-                                : "bg-fuchsia-500 hover:bg-fuchsia-600 text-white cursor-pointer"
-                            }`}
+                            className={`mt-3 w-full py-2 text-sm font-semibold rounded flex items-center justify-center gap-2 transition ${loadingId === n.id
+                              ? "bg-gray-600 text-gray-300 cursor-not-allowed"
+                              : "bg-fuchsia-500 hover:bg-fuchsia-600 text-white cursor-pointer"
+                              }`}
                           >
                             {loadingId === n.id ? "Sending..." : <><Check size={14} /> Approve & Send Password</>}
                           </button>
@@ -127,9 +128,9 @@ export default function AdminDashboard() {
               )}
             </div>
 
-            <button 
+            <button
               onClick={() => navigate("/admin/login", { replace: true })}
-              className="flex items-center gap-2 bg-white/10 hover:bg-white/20 transition px-4 py-2 rounded-lg cursor-pointer"
+              className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-fuchsia-300 hover:text-fuchsia-200 transition px-4 py-2 rounded-lg cursor-pointer"
             >
               <LogOut size={18} /> Logout
             </button>
@@ -154,9 +155,8 @@ export default function AdminDashboard() {
 
       {/* Toast Notification overlay */}
       {toast && (
-        <div className={`fixed bottom-8 right-8 max-w-sm p-4 rounded-xl shadow-2xl border flex items-start gap-4 z-[100] animate-in slide-in-from-bottom-5 duration-300 ${
-          toast.type === 'success' ? 'bg-green-500/10 border-green-500/30 text-green-400' : 'bg-red-500/10 border-red-500/30 text-red-400'
-        }`}>
+        <div className={`fixed bottom-8 right-8 max-w-sm p-4 rounded-xl shadow-2xl border flex items-start gap-4 z-[100] animate-in slide-in-from-bottom-5 duration-300 ${toast.type === 'success' ? 'bg-green-500/10 border-green-500/30 text-green-400' : 'bg-red-500/10 border-red-500/30 text-red-400'
+          }`}>
           <div className="mt-0.5">
             {toast.type === 'success' ? <Check size={24} /> : <X size={24} />}
           </div>

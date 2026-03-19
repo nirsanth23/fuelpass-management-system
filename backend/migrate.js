@@ -75,6 +75,44 @@ async function migrate() {
       });
     });
     console.log("Admin notifications table created/verified.");
+    
+    // Fuel Stations table
+    const createFuelStationsTable = `
+      CREATE TABLE IF NOT EXISTS fuel_stations (
+        station_id VARCHAR(50) PRIMARY KEY,
+        password VARCHAR(255) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `;
+    
+    await new Promise((resolve, reject) => {
+      db.query(createFuelStationsTable, (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+    console.log("Fuel stations table created/verified.");
+
+    // Seed fuel stations if empty
+    const seedFuelStations = async () => {
+      const stations = [
+        ['station1', '1234'],
+        ['station2', '2345'],
+        ['station3', '12345'] // Initial default for station3
+      ];
+      
+      for (const [id, pass] of stations) {
+        await new Promise((resolve, reject) => {
+          db.query('INSERT IGNORE INTO fuel_stations (station_id, password) VALUES (?, ?)', [id, pass], (err) => {
+            if (err) reject(err);
+            else resolve();
+          });
+        });
+      }
+    };
+    
+    await seedFuelStations();
+    console.log("Fuel stations seeded.");
 
     console.log("Migration finished successfully.");
     process.exit(0);

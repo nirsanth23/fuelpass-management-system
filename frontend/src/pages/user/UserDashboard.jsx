@@ -7,7 +7,11 @@ export default function UserDashboard() {
   return (
     <div className="min-h-screen bg-[#0B1220] text-white px-6 py-10">
       <div className="max-w-4xl mx-auto rounded-2xl border border-white/10 bg-white/5 p-8">
-        <h1 className="text-3xl font-bold mb-3">Welcome to User Dashboard</h1>
+        <h1 className="text-3xl font-bold mb-3">
+          <span className="bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-600 bg-clip-text text-transparent">
+            Welcome to User Dashboard
+          </span>
+        </h1>
         <p className="text-gray-300 mb-8">
           OTP login is successful. Next step is to build your fuel quota and reservation modules.
         </p>

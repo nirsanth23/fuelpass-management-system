@@ -9,8 +9,10 @@ export default function FuelStationDashboard() {
     <div className="min-h-screen bg-[#0B1220] text-white p-8">
       <div className="max-w-7xl mx-auto">
         <div className="flex justify-between items-center mb-10">
-          <h1 className="text-3xl font-bold text-orange-400">
-            Fuel Station Status Board
+          <h1 className="text-3xl font-bold">
+            <span className="bg-gradient-to-r from-orange-400 via-amber-500 to-red-600 bg-clip-text text-transparent">
+              Fuel Station Status Board
+            </span>
           </h1>
           <button 
             onClick={() => navigate("/fuelstation/login", { replace: true })}

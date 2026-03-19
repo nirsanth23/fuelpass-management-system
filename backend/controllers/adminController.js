@@ -37,7 +37,17 @@ const approvePasswordReset = async (req, res) => {
   const newPassword = Math.floor(10000 + Math.random() * 90000).toString();
 
   try {
+    const notification = await adminModel.getNotificationById(id);
+    if (!notification) {
+      return res.status(404).json({ message: "Notification not found." });
+    }
+
+    const stationId = notification.station_username;
     await sendPasswordEmail(email, newPassword);
+    
+    // Update the station's password in the database
+    const { updateStationPassword } = require("../models/stationModel");
+    await updateStationPassword(stationId, newPassword);
     
     await adminModel.markNotificationResolved(id);
 

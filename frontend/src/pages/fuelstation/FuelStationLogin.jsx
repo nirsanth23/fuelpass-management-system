@@ -16,7 +16,7 @@ export default function FuelStationLogin() {
   const [forgotUsername, setForgotUsername] = useState("");
   const [email, setEmail] = useState(""); // Renamed from stationEmail for forgot password
   const [phoneNumber, setPhoneNumber] = useState("");
-  
+
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -25,14 +25,37 @@ export default function FuelStationLogin() {
   const isForgotValid =
     forgotUsername.trim() !== "" && email.includes("@") && phoneNumber.trim() !== "";
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
     setErrorMsg("");
-    
-    if (username === "station1" && password === "12345") {
-      navigate("/fuelstation/dashboard");
-    } else {
-      setErrorMsg("Invalid username or password");
+    setIsLoading(true);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/auth/station-login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          stationId: username,
+          password: password,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        localStorage.setItem("stationToken", data.token);
+        localStorage.setItem("stationId", data.stationId);
+        navigate("/fuelstation/dashboard");
+      } else {
+        setErrorMsg(data.message || "Invalid username or password");
+      }
+    } catch (error) {
+      console.error("Login error:", error);
+      setErrorMsg("An unexpected error occurred. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -94,7 +117,9 @@ export default function FuelStationLogin() {
           <>
             {/* LOGIN SECTION */}
             <h2 className="text-3xl font-bold mb-6 text-center">
-              Station Login
+              <span className="bg-gradient-to-r from-orange-400 via-amber-500 to-red-600 bg-clip-text text-transparent">
+                Station Login
+              </span>
             </h2>
 
             {errorMsg && !showForgot && (
@@ -160,7 +185,9 @@ export default function FuelStationLogin() {
           <>
             {/* FORGOT PASSWORD SECTION */}
             <h2 className="text-2xl font-bold mb-4 text-center">
-              Request Password Reset
+              <span className="bg-gradient-to-r from-orange-400 via-amber-500 to-red-600 bg-clip-text text-transparent">
+                Request Password Reset
+              </span>
             </h2>
 
             <div className="mb-4 p-3 rounded-lg bg-yellow-500/10 border border-yellow-400/20 text-sm text-yellow-200">
@@ -242,11 +269,10 @@ export default function FuelStationLogin() {
               <button
                 type="submit"
                 disabled={!isForgotValid || isLoading}
-                className={`w-full py-3 rounded-lg font-semibold cursor-pointer ${
-                  isForgotValid && !isLoading
+                className={`w-full py-3 rounded-lg font-semibold cursor-pointer ${isForgotValid && !isLoading
                     ? "bg-gradient-to-r from-orange-400 to-red-500 hover:shadow-lg hover:shadow-orange-500/20"
                     : "bg-gray-500 opacity-70 cursor-not-allowed"
-                }`}
+                  }`}
               >
                 {isLoading ? "Sending..." : "Send Request"}
               </button>
