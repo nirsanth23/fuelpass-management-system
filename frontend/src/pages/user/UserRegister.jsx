@@ -12,6 +12,17 @@ export default function UserRegister() {
   const [otpSent, setOtpSent] = useState(false);
   const [verified, setVerified] = useState(false);
   const [step, setStep] = useState(1);
+  const [registrationToken, setRegistrationToken] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+
+  const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "http://localhost:8081").replace(/\/$/, "");
+
+  const resetMessages = () => {
+    setErrorMessage("");
+    setSuccessMessage("");
+  };
 
   const [personalDetails, setPersonalDetails] = useState({
     firstName: "",
@@ -30,8 +41,12 @@ export default function UserRegister() {
     color: "",
   });
 
-  const isIdentityValid = nicOrPassport.trim().length >= 5;
-  const isEmailValid = email.endsWith("@gmail.com") && email.length > 10;
+  const isIdentityValid =
+    idType === "nic"
+      ? /^(?:\d{12}|\d{9}[VvXx])$/.test(nicOrPassport.trim())
+      : nicOrPassport.trim().length >= 5;
+
+  const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
   const isOtpValid = otp.length === 4;
 
   const isPersonalValid =
@@ -47,15 +62,64 @@ export default function UserRegister() {
     vehicleDetails.vehicleType.trim() &&
     vehicleDetails.fuelType.trim();
 
-  const handleSendOtp = () => {
-    if (!isIdentityValid || !isEmailValid) return;
-    setOtpSent(true);
+  const handleSendOtp = async () => {
+    if (!isIdentityValid || !isEmailValid || isLoading) return;
+
+    resetMessages();
+    setIsLoading(true);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/auth/send-otp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim(), type: "register" }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setErrorMessage(data.message || "Failed to send OTP.");
+        return;
+      }
+
+      setOtpSent(true);
+      setSuccessMessage(data.message || "OTP sent successfully.");
+    } catch (error) {
+      setErrorMessage("Unable to connect to the server.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleVerifyOtp = () => {
-    if (!isOtpValid) return;
-    setVerified(true);
-    setStep(1);
+  const handleVerifyOtp = async () => {
+    if (!isOtpValid || isLoading) return;
+
+    resetMessages();
+    setIsLoading(true);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/auth/verify-otp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim(), otp, type: "register" }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setErrorMessage(data.message || "Invalid OTP.");
+        return;
+      }
+
+      setRegistrationToken(data.registrationToken || "");
+      setVerified(true);
+      setStep(1);
+      setSuccessMessage("OTP verified successfully.");
+    } catch (error) {
+      setErrorMessage("Unable to connect to the server.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handlePersonalChange = (e) => {
@@ -83,29 +147,60 @@ export default function UserRegister() {
     setStep(1);
   };
 
-  const handleRegister = (e) => {
+  const handleRegister = async (e) => {
     e.preventDefault();
 
-    if (!isVehicleValid) return;
+    if (!isVehicleValid || isLoading) return;
 
-    const finalData = {
-      idType,
-      nicOrPassport,
-      email,
-      personalDetails,
-      vehicleDetails: {
-        ...vehicleDetails,
-        vehicleNumber: `${vehicleDetails.vehicleLetters} ${vehicleDetails.vehicleNumbers}`,
-      },
-    };
+    resetMessages();
+    setIsLoading(true);
 
-    console.log("Register Data:", finalData);
+    try {
+      const finalData = {
+        idType,
+        nicOrPassport,
+        personalDetails,
+        vehicleDetails: {
+          ...vehicleDetails,
+          vehicleNumber: `${vehicleDetails.vehicleLetters} ${vehicleDetails.vehicleNumbers}`,
+        },
+        registrationToken,
+      };
+
+      const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(finalData),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setErrorMessage(data.message || "Registration failed.");
+        return;
+      }
+
+      if (data.token) {
+        localStorage.setItem("fuelpass_token", data.token);
+      }
+      if (data.user) {
+        localStorage.setItem("fuelpass_user", JSON.stringify(data.user));
+      }
+
+      setSuccessMessage("Registration successful. Redirecting...");
+      setTimeout(() => {
+        navigate("/user/dashboard");
+      }, 1000);
+    } catch (error) {
+      setErrorMessage("Unable to connect to the server.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#0B1220] text-white px-4 py-8">
       <div className="relative w-full max-w-md rounded-2xl bg-white/10 backdrop-blur-xl p-8 border border-white/10">
-
         <button
           type="button"
           onClick={() => navigate("/user/login")}
@@ -126,77 +221,107 @@ export default function UserRegister() {
 
         <h2 className="text-3xl font-bold mb-6 text-center">Register</h2>
 
+        {errorMessage && (
+          <div className="mb-4 rounded-lg bg-red-500/20 px-4 py-3 text-sm text-red-300">
+            {errorMessage}
+          </div>
+        )}
+
+        {successMessage && (
+          <div className="mb-4 rounded-lg bg-green-500/20 px-4 py-3 text-sm text-green-300">
+            {successMessage}
+          </div>
+        )}
+
         <form className="space-y-4" onSubmit={handleRegister}>
           {!verified && (
             <>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder={idType === "nic" ? "Ex: 67889012V" : "Ex: N1234567"}
-                  value={nicOrPassport}
-                  onChange={(e) => setNicOrPassport(e.target.value)}
-                  className="w-[250px] rounded-lg border border-white/20 bg-white/10 px-4 py-3 text-white placeholder-gray-400 outline-none"
-                />
+              <div>
+                <label className="block mb-2 text-sm text-gray-300">
+                  ID Type and Number
+                </label>
 
-                <select
-                  value={idType}
-                  onChange={(e) => setIdType(e.target.value)}
-                  className="w-[150px] rounded-lg border border-white/20 bg-white/10 px-2 py-3 text-white outline-none"
-                >
-                  <option value="nic" className="text-black">
-                    NIC
-                  </option>
-                  <option value="passport" className="text-black">
-                    Passport
-                  </option>
-                </select>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder={idType === "nic" ? "Ex: 67889012V" : "Ex: N1234567"}
+                    value={nicOrPassport}
+                    onChange={(e) => setNicOrPassport(e.target.value)}
+                    className="w-[250px] rounded-lg border border-white/20 bg-white/10 px-4 py-3 text-white placeholder-gray-400 outline-none focus:ring-2 focus:ring-cyan-500"
+                  />
+
+                  <select
+                    value={idType}
+                    onChange={(e) => setIdType(e.target.value)}
+                    className="w-[150px] rounded-lg border border-white/20 bg-white/10 px-2 py-3 text-white outline-none focus:ring-2 focus:ring-cyan-500"
+                  >
+                    <option value="nic" className="text-black">
+                      NIC
+                    </option>
+                    <option value="passport" className="text-black">
+                      Passport
+                    </option>
+                  </select>
+                </div>
               </div>
 
-              <input
-                type="email"
-                placeholder="Email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-lg border border-white/20 bg-white/10 px-4 py-3 text-white placeholder-gray-400 outline-none"
-              />
+              <div>
+                <label className="block mb-2 text-sm text-gray-300">
+                  Email
+                </label>
+
+                <input
+                  type="email"
+                  placeholder="Ex: abc@gmail.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full rounded-lg border border-white/20 bg-white/10 px-4 py-3 text-white placeholder-gray-400 outline-none focus:ring-2 focus:ring-cyan-500"
+                />
+              </div>
 
               {!otpSent && (
                 <button
                   type="button"
                   onClick={handleSendOtp}
-                  disabled={!isIdentityValid || !isEmailValid}
+                  disabled={!isIdentityValid || !isEmailValid || isLoading}
                   className={`w-full py-3 rounded-lg font-semibold transition ${
-                    isIdentityValid && isEmailValid
+                    isIdentityValid && isEmailValid && !isLoading
                       ? "bg-gradient-to-r from-cyan-500 to-blue-600 cursor-pointer"
                       : "bg-gray-500/70 cursor-not-allowed"
                   }`}
                 >
-                  Send OTP
+                  {isLoading ? "Sending..." : "Send OTP"}
                 </button>
               )}
 
               {otpSent && (
                 <>
-                  <input
-                    type="text"
-                    placeholder="Enter OTP"
-                    value={otp}
-                    maxLength={4}
-                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
-                    className="w-full rounded-lg border border-white/20 bg-white/10 px-4 py-3 text-white placeholder-gray-400 outline-none"
-                  />
+                  <div>
+                    <label className="block mb-2 text-sm text-gray-300">
+                      OTP
+                    </label>
+
+                    <input
+                      type="text"
+                      placeholder="Enter 4-digit OTP"
+                      value={otp}
+                      maxLength={4}
+                      onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
+                      className="w-full rounded-lg border border-white/20 bg-white/10 px-4 py-3 text-white placeholder-gray-400 outline-none focus:ring-2 focus:ring-cyan-500"
+                    />
+                  </div>
 
                   <button
                     type="button"
                     onClick={handleVerifyOtp}
-                    disabled={!isOtpValid}
+                    disabled={!isOtpValid || isLoading}
                     className={`w-full py-3 rounded-lg font-semibold transition ${
-                      isOtpValid
+                      isOtpValid && !isLoading
                         ? "bg-gradient-to-r from-cyan-500 to-blue-600 cursor-pointer"
                         : "bg-gray-500/70 cursor-not-allowed"
                     }`}
                   >
-                    Verify
+                    {isLoading ? "Verifying..." : "Verify"}
                   </button>
                 </>
               )}
@@ -209,46 +334,62 @@ export default function UserRegister() {
                 Email verified successfully
               </div>
 
-              <input
-                type="text"
-                name="firstName"
-                placeholder="First Name"
-                value={personalDetails.firstName}
-                onChange={handlePersonalChange}
-                className="w-full rounded-lg border border-white/20 bg-white/10 px-4 py-3 text-white placeholder-gray-400 outline-none"
-              />
+              <div>
+                <label className="block mb-2 text-sm text-gray-300">
+                  First Name
+                </label>
+                <input
+                  type="text"
+                  name="firstName"
+                  value={personalDetails.firstName}
+                  onChange={handlePersonalChange}
+                  className="w-full rounded-lg border border-white/20 bg-white/10 px-4 py-3 text-white outline-none focus:ring-2 focus:ring-cyan-500"
+                />
+              </div>
 
-              <input
-                type="text"
-                name="lastName"
-                placeholder="Last Name"
-                value={personalDetails.lastName}
-                onChange={handlePersonalChange}
-                className="w-full rounded-lg border border-white/20 bg-white/10 px-4 py-3 text-white placeholder-gray-400 outline-none"
-              />
+              <div>
+                <label className="block mb-2 text-sm text-gray-300">
+                  Last Name
+                </label>
+                <input
+                  type="text"
+                  name="lastName"
+                  value={personalDetails.lastName}
+                  onChange={handlePersonalChange}
+                  className="w-full rounded-lg border border-white/20 bg-white/10 px-4 py-3 text-white outline-none focus:ring-2 focus:ring-cyan-500"
+                />
+              </div>
 
-              <input
-                type="text"
-                name="address"
-                placeholder="Address"
-                value={personalDetails.address}
-                onChange={handlePersonalChange}
-                className="w-full rounded-lg border border-white/20 bg-white/10 px-4 py-3 text-white placeholder-gray-400 outline-none"
-              />
+              <div>
+                <label className="block mb-2 text-sm text-gray-300">
+                  Address
+                </label>
+                <input
+                  type="text"
+                  name="address"
+                  value={personalDetails.address}
+                  onChange={handlePersonalChange}
+                  className="w-full rounded-lg border border-white/20 bg-white/10 px-4 py-3 text-white outline-none focus:ring-2 focus:ring-cyan-500"
+                />
+              </div>
 
-              <input
-                type="text"
-                name="phoneNumber"
-                placeholder="Phone Number"
-                value={personalDetails.phoneNumber}
-                onChange={(e) =>
-                  setPersonalDetails((prev) => ({
-                    ...prev,
-                    phoneNumber: e.target.value.replace(/\D/g, ""),
-                  }))
-                }
-                className="w-full rounded-lg border border-white/20 bg-white/10 px-4 py-3 text-white placeholder-gray-400 outline-none"
-              />
+              <div>
+                <label className="block mb-2 text-sm text-gray-300">
+                  Phone Number
+                </label>
+                <input
+                  type="text"
+                  name="phoneNumber"
+                  value={personalDetails.phoneNumber}
+                  onChange={(e) =>
+                    setPersonalDetails((prev) => ({
+                      ...prev,
+                      phoneNumber: e.target.value.replace(/\D/g, ""),
+                    }))
+                  }
+                  className="w-full rounded-lg border border-white/20 bg-white/10 px-4 py-3 text-white outline-none focus:ring-2 focus:ring-cyan-500"
+                />
+              </div>
 
               <button
                 type="button"
@@ -271,111 +412,131 @@ export default function UserRegister() {
                 Enter vehicle details
               </div>
 
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  name="vehicleLetters"
-                  placeholder="ABC"
-                  maxLength={3}
-                  value={vehicleDetails.vehicleLetters}
-                  onChange={(e) =>
-                    setVehicleDetails((prev) => ({
-                      ...prev,
-                      vehicleLetters: e.target.value
-                        .replace(/[^A-Za-z]/g, "")
-                        .toUpperCase(),
-                    }))
-                  }
-                  className="w-1/2 rounded-lg border border-white/20 bg-white/10 px-4 py-3 text-white placeholder-gray-400 outline-none"
-                />
+              <div>
+                <label className="block mb-2 text-sm text-gray-300">
+                  Vehicle Number
+                </label>
 
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    name="vehicleLetters"
+                    placeholder="ABC"
+                    maxLength={3}
+                    value={vehicleDetails.vehicleLetters}
+                    onChange={(e) =>
+                      setVehicleDetails((prev) => ({
+                        ...prev,
+                        vehicleLetters: e.target.value
+                          .replace(/[^A-Za-z]/g, "")
+                          .toUpperCase(),
+                      }))
+                    }
+                    className="w-1/2 rounded-lg border border-white/20 bg-white/10 px-4 py-3 text-white placeholder-gray-400 outline-none focus:ring-2 focus:ring-cyan-500"
+                  />
+
+                  <input
+                    type="text"
+                    name="vehicleNumbers"
+                    placeholder="8895"
+                    maxLength={4}
+                    value={vehicleDetails.vehicleNumbers}
+                    onChange={(e) =>
+                      setVehicleDetails((prev) => ({
+                        ...prev,
+                        vehicleNumbers: e.target.value.replace(/\D/g, ""),
+                      }))
+                    }
+                    className="w-1/2 rounded-lg border border-white/20 bg-white/10 px-4 py-3 text-white placeholder-gray-400 outline-none focus:ring-2 focus:ring-cyan-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block mb-2 text-sm text-gray-300">
+                  Chassis Number
+                </label>
                 <input
                   type="text"
-                  name="vehicleNumbers"
-                  placeholder="8895"
-                  maxLength={4}
-                  value={vehicleDetails.vehicleNumbers}
-                  onChange={(e) =>
-                    setVehicleDetails((prev) => ({
-                      ...prev,
-                      vehicleNumbers: e.target.value.replace(/\D/g, ""),
-                    }))
-                  }
-                  className="w-1/2 rounded-lg border border-white/20 bg-white/10 px-4 py-3 text-white placeholder-gray-400 outline-none"
+                  name="chassisNo"
+                  value={vehicleDetails.chassisNo}
+                  onChange={handleVehicleChange}
+                  className="w-full rounded-lg border border-white/20 bg-white/10 px-4 py-3 text-white outline-none focus:ring-2 focus:ring-cyan-500"
                 />
               </div>
 
-              <input
-                type="text"
-                name="chassisNo"
-                placeholder="Chassis No"
-                value={vehicleDetails.chassisNo}
-                onChange={handleVehicleChange}
-                className="w-full rounded-lg border border-white/20 bg-white/10 px-4 py-3 text-white placeholder-gray-400 outline-none"
-              />
+              <div>
+                <label className="block mb-2 text-sm text-gray-300">
+                  Vehicle Type
+                </label>
+                <select
+                  name="vehicleType"
+                  value={vehicleDetails.vehicleType}
+                  onChange={handleVehicleChange}
+                  className="w-full rounded-lg border border-white/20 bg-[#1E293B] px-4 py-3 text-white outline-none appearance-none cursor-pointer focus:ring-2 focus:ring-cyan-500"
+                >
+                  <option value="" className="text-gray-400">
+                    Select Vehicle Type
+                  </option>
+                  <option value="motorcycle" className="text-white">
+                    Motorcycle
+                  </option>
+                  <option value="threewheeler" className="text-white">
+                    Three Wheeler
+                  </option>
+                  <option value="car" className="text-white">
+                    Car
+                  </option>
+                  <option value="van" className="text-white">
+                    Van
+                  </option>
+                  <option value="bus" className="text-white">
+                    Bus
+                  </option>
+                  <option value="lorry" className="text-white">
+                    Lorry
+                  </option>
+                </select>
+              </div>
 
-              <select
-                name="vehicleType"
-                value={vehicleDetails.vehicleType}
-                onChange={handleVehicleChange}
-                className="w-full rounded-lg border border-white/20 bg-[#1E293B] px-4 py-3 text-white outline-none appearance-none cursor-pointer"
-              >
-                <option value="" className="text-gray-400">
-                  Select Vehicle Type
-                </option>
-                <option value="motorcycle" className="text-white">
-                  Motorcycle
-                </option>
-                <option value="threewheeler" className="text-white">
-                  Three Wheeler
-                </option>
-                <option value="car" className="text-white">
-                  Car
-                </option>
-                <option value="van" className="text-white">
-                  Van
-                </option>
-                <option value="bus" className="text-white">
-                  Bus
-                </option>
-                <option value="lorry" className="text-white">
-                  Lorry
-                </option>
-              </select>
-
-              <select
-                name="fuelType"
-                value={vehicleDetails.fuelType}
-                onChange={handleVehicleChange}
-                className="w-full rounded-lg border border-white/20 bg-[#1E293B] px-4 py-3 text-white outline-none appearance-none cursor-pointer"
-              >
-                <option value="" className="text-gray-400">
-                  Select Fuel Type
-                </option>
-                <option value="petrol92" className="text-white">
-                  Petrol 92
-                </option>
-                <option value="petrol95" className="text-white">
-                  Petrol 95
-                </option>
-                <option value="diesel" className="text-white">
-                  Diesel
-                </option>
-                <option value="superdiesel" className="text-white">
-                  Super Diesel
-                </option>
-              </select>
+              <div>
+                <label className="block mb-2 text-sm text-gray-300">
+                  Fuel Type
+                </label>
+                <select
+                  name="fuelType"
+                  value={vehicleDetails.fuelType}
+                  onChange={handleVehicleChange}
+                  className="w-full rounded-lg border border-white/20 bg-[#1E293B] px-4 py-3 text-white outline-none appearance-none cursor-pointer focus:ring-2 focus:ring-cyan-500"
+                >
+                  <option value="" className="text-gray-400">
+                    Select Fuel Type
+                  </option>
+                  <option value="petrol92" className="text-white">
+                    Petrol 92
+                  </option>
+                  <option value="petrol95" className="text-white">
+                    Petrol 95
+                  </option>
+                  <option value="diesel" className="text-white">
+                    Diesel
+                  </option>
+                  <option value="superdiesel" className="text-white">
+                    Super Diesel
+                  </option>
+                </select>
+              </div>
 
               <button
                 type="submit"
-                disabled={!isVehicleValid}
+                disabled={!isVehicleValid || isLoading}
                 className={`w-full py-3 rounded-lg font-semibold transition ${
-                  isVehicleValid
-                    ? "bg-gradient-to-r from-cyan-500 to-blue-600 cursor-pointer"
-                    : "bg-gray-500/70 cursor-not-allowed"
+                  isVehicleValid && !isLoading
+                    ? "bg-gradient-to-r from-cyan-500 to-blue-600 cursor-pointer hover:shadow-lg hover:shadow-cyan-500/20"
+                    : "bg-gray-500/70 cursor-not-allowed opacity-70"
                 }`}
               >
-                Register
+                {isLoading ? "Registering..." : "Register"}
               </button>
             </>
           )}
