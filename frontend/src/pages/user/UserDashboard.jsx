@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Fuel, Calendar, Car, AlertCircle, LogOut, User, Edit, X } from "lucide-react";
+import { Fuel, Calendar, Car, AlertCircle, LogOut, User, Edit, X, Check } from "lucide-react";
 
 export default function UserDashboard() {
   const navigate = useNavigate();
@@ -8,6 +8,7 @@ export default function UserDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showQr, setShowQr] = useState(false);
+  const [reservedUntil, setReservedUntil] = useState(null);
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -41,6 +42,12 @@ export default function UserDashboard() {
 
     fetchUserData();
   }, [navigate]);
+
+  useEffect(() => {
+    if (userData && userData.reserved_until) {
+      setReservedUntil(userData.reserved_until);
+    }
+  }, [userData]);
 
   if (loading) {
     return (
@@ -151,9 +158,61 @@ export default function UserDashboard() {
                   </div>
                 </div>
 
-                <div className="pt-4 border-t border-white/10 flex items-center gap-2 text-sm text-gray-400">
-                  <Calendar size={16} className="text-cyan-400" />
-                  Cycle: {formatDate(userData.week_start)} to {formatDate(userData.week_end)}
+                <div className="pt-4 border-t border-white/10 flex flex-col gap-4">
+                  <div className="flex items-center gap-2 text-sm text-gray-400">
+                    <Calendar size={16} className="text-cyan-400" />
+                    Cycle: {formatDate(userData.week_start)} to {formatDate(userData.week_end)}
+                  </div>
+                                    <button 
+                    onClick={async () => {
+                      const isUnreserving = !!reservedUntil;
+                      let dbDate = null;
+                      
+                      if (!isUnreserving) {
+                        const nextEnd = new Date(userData.week_end);
+                        nextEnd.setDate(nextEnd.getDate() + 7);
+                        dbDate = nextEnd.toISOString().split('T')[0];
+                      }
+                      
+                      const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "http://localhost:8081").replace(/\/$/, "");
+                      const token = localStorage.getItem("fuelpass_token");
+                      
+                      try {
+                        const response = await fetch(`${API_BASE_URL}/api/auth/reserve-fuel`, {
+                          method: "POST",
+                          headers: {
+                            "Content-Type": "application/json",
+                            Authorization: `Bearer ${token}`,
+                          },
+                          body: JSON.stringify({ reservedUntil: dbDate }),
+                        });
+
+                        if (response.ok) {
+                          setReservedUntil(dbDate);
+                        }
+                      } catch (err) {
+                        console.error("Reservation update failed:", err);
+                      }
+                    }}
+                    className={`w-full py-3 rounded-xl font-bold transition flex items-center justify-center gap-2 group cursor-pointer ${
+                      reservedUntil 
+                        ? "bg-green-500/10 border border-green-500/30 text-green-400 hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-400" 
+                        : "bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20 shadow-lg shadow-cyan-500/5"
+                    }`}
+                  >
+                    {reservedUntil ? (
+                      <>
+                        <Check size={18} className="group-hover:hidden" />
+                        <X size={18} className="hidden group-hover:block" />
+                        <span className="group-hover:hidden">Reserved until {formatDate(reservedUntil)}</span>
+                        <span className="hidden group-hover:block">Cancel Reservation</span>
+                      </>
+                    ) : (
+                      "Reserve Fuel"
+                    )}
+                  </button>
+
+                  {/* Reservation Message Removed */}
                 </div>
               </div>
             ) : (
@@ -203,28 +262,17 @@ export default function UserDashboard() {
             </button>
           </div>
         </div>
-
-        <div className="grid gap-6 sm:grid-cols-2">
-          <div
+        <div className="grid gap-6">
+          <div 
             onClick={() => setShowQr(true)}
-            className="rounded-2xl border border-blue-400/30 bg-blue-500/10 p-6 flex items-center justify-between group cursor-pointer hover:bg-blue-500/20 transition"
+            className="rounded-2xl border border-blue-400/30 bg-blue-500/10 p-8 flex items-center justify-between group cursor-pointer hover:bg-blue-500/20 transition shadow-lg shadow-blue-500/5"
           >
             <div>
-              <h3 className="text-lg font-semibold mb-1">QR Fuel Pass</h3>
+              <h3 className="text-xl font-bold mb-1">QR Fuel Pass</h3>
               <p className="text-sm text-blue-300">View and download your digital pass</p>
             </div>
-            <div className="w-12 h-12 rounded-xl bg-blue-400/20 flex items-center justify-center group-hover:scale-110 transition">
-              <AlertCircle className="text-blue-400" />
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-purple-400/30 bg-purple-500/10 p-6 flex items-center justify-between group cursor-pointer hover:bg-purple-500/20 transition">
-            <div>
-              <h3 className="text-lg font-semibold mb-1">Reservations</h3>
-              <p className="text-sm text-purple-300">Schedule your next fuel pickup</p>
-            </div>
-            <div className="w-12 h-12 rounded-xl bg-purple-400/20 flex items-center justify-center group-hover:scale-110 transition">
-              <Calendar className="text-purple-400" />
+            <div className="w-14 h-14 rounded-2xl bg-blue-400/20 flex items-center justify-center group-hover:scale-110 transition">
+              <AlertCircle className="text-blue-400" size={28} />
             </div>
           </div>
         </div>
