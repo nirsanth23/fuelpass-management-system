@@ -10,7 +10,8 @@ const {
   findOrCreateUserByEmail,
   getUserWithVehicleAndQuota,
   findUserByNic,
-  updateVehicleDetails
+  updateVehicleDetails,
+  setFuelReservation
 } = require("../models/userModel");
 const { findStationById } = require("../models/stationModel");
 
@@ -201,6 +202,19 @@ const updateVehicle = async (req, res) => {
   }
 };
 
+const reserveFuel = async (req, res) => {
+  const { reservedUntil } = req.body;
+  const userId = req.user.userId;
+
+  try {
+    await setFuelReservation(userId, reservedUntil);
+    return res.json({ message: "Fuel reserved successfully" });
+  } catch (error) {
+    console.error("reserveFuel Error:", error);
+    return res.status(500).json({ message: getDbErrorMessage(error) });
+  }
+};
+
 module.exports = {
   sendOtp,
   verifyOtp,
@@ -209,4 +223,5 @@ module.exports = {
   stationLogin,
   checkNic,
   updateVehicle,
+  reserveFuel,
 };

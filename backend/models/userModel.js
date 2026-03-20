@@ -104,7 +104,7 @@ const findOrCreateUserByEmail = (email) =>
 const getUserWithVehicleAndQuota = (userId) =>
   new Promise((resolve, reject) => {
     const query = `
-      SELECT u.id, u.email, v.vehicle_type, v.fuel_type, v.vehicle_number, v.chassis_no,
+      SELECT u.id, u.email, v.vehicle_type, v.fuel_type, v.vehicle_number, v.chassis_no, v.reserved_until,
              (SELECT SUM(amount) FROM fuel_transactions 
               WHERE user_id = u.id AND created_at >= DATE_SUB(NOW(), INTERVAL (DAYOFWEEK(NOW()) + 4) % 7 DAY)) as used_fuel,
              DATE_SUB(NOW(), INTERVAL (DAYOFWEEK(NOW()) + 4) % 7 DAY) as week_start,
@@ -138,6 +138,15 @@ const updateVehicleDetails = (userId, vehicleData) =>
     );
   });
 
+const setFuelReservation = (userId, reservedUntil) =>
+  new Promise((resolve, reject) => {
+    const query = "UPDATE vehicles SET reserved_until = ? WHERE user_id = ?";
+    db.query({ sql: query, timeout: QUERY_TIMEOUT_MS }, [reservedUntil, userId], (err, result) => {
+      if (err) return reject(err);
+      resolve(result.affectedRows);
+    });
+  });
+
 module.exports = {
   createUserWithDetails,
   createVehicle,
@@ -145,4 +154,5 @@ module.exports = {
   getUserWithVehicleAndQuota,
   findUserByNic,
   updateVehicleDetails,
+  setFuelReservation,
 };

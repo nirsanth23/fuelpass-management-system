@@ -43,6 +43,7 @@ async function migrate() {
         chassis_no VARCHAR(50) NOT NULL,
         vehicle_type VARCHAR(50) NOT NULL,
         fuel_type VARCHAR(50) NOT NULL,
+        reserved_until DATE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
       );
@@ -54,8 +55,17 @@ async function migrate() {
         else resolve();
       });
     });
-    console.log("Vehicles table created/verified.");
-    
+    // Vehicles table changes
+    const alterVehiclesQueries = [
+      "ALTER TABLE vehicles ADD COLUMN reserved_until DATE;"
+    ];
+
+    for (const query of alterVehiclesQueries) {
+      await new Promise((resolve) => {
+        db.query(query, () => resolve()); // Ignore errors if column exists
+      });
+    }
+
     const createUserOtpsTable = `
       CREATE TABLE IF NOT EXISTS user_otps (
         id INT AUTO_INCREMENT PRIMARY KEY,

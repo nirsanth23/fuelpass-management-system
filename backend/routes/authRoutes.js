@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { sendOtp, verifyOtp, register, getMe, stationLogin, checkNic, updateVehicle } = require("../controllers/authController");
+const { sendOtp, verifyOtp, register, getMe, stationLogin, checkNic, updateVehicle, reserveFuel } = require("../controllers/authController");
 const {
   validateSendOtpInput,
   validateVerifyOtpInput,
@@ -14,6 +14,7 @@ router.post("/check-nic", checkNic);
 router.post("/register", validateRegisterInput, register);
 router.post("/station-login", stationLogin);
 router.put("/vehicle", requireAuth, updateVehicle);
+router.post("/reserve-fuel", requireAuth, reserveFuel);
 router.get("/me", requireAuth, getMe);
 
 module.exports = router;
