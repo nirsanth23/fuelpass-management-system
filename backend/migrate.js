@@ -55,6 +55,26 @@ async function migrate() {
       });
     });
     console.log("Vehicles table created/verified.");
+    
+    const createUserOtpsTable = `
+      CREATE TABLE IF NOT EXISTS user_otps (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        email VARCHAR(255) NOT NULL,
+        otp CHAR(4) NOT NULL,
+        expires_at DATETIME NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_email_created (email, created_at),
+        INDEX idx_email_otp (email, otp)
+      );
+    `;
+
+    await new Promise((resolve, reject) => {
+      db.query(createUserOtpsTable, (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+    console.log("User OTPs table created/verified.");
 
     const createNotificationsTable = `
       CREATE TABLE IF NOT EXISTS admin_notifications (
@@ -113,6 +133,59 @@ async function migrate() {
     
     await seedFuelStations();
     console.log("Fuel stations seeded.");
+
+    const createFuelTransactionsTable = `
+      CREATE TABLE IF NOT EXISTS fuel_transactions (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        amount DECIMAL(10, 2) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      );
+    `;
+
+    await new Promise((resolve, reject) => {
+      db.query(createFuelTransactionsTable, (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+    console.log("Fuel transactions table created/verified.");
+
+    // Seed some test fuel transactions if empty
+    const seedFuelTransactions = async () => {
+        const checkQuery = "SELECT COUNT(*) as count FROM fuel_transactions";
+        const result = await new Promise((resolve, reject) => {
+            db.query(checkQuery, (err, results) => {
+                if (err) reject(err);
+                else resolve(results[0].count);
+            });
+        });
+
+        if (result === 0) {
+            // Find a user to assign transactions to
+            const userResult = await new Promise((resolve, reject) => {
+                db.query("SELECT id FROM users LIMIT 1", (err, results) => {
+                    if (err) reject(err);
+                    else resolve(results[0]);
+                });
+            });
+
+            if (userResult) {
+                const userId = userResult.id;
+                // Add a 3L transaction for testing (as per user request: "if he already get 3L")
+                await new Promise((resolve, reject) => {
+                    db.query("INSERT INTO fuel_transactions (user_id, amount) VALUES (?, ?)", [userId, 3.0], (err) => {
+                        if (err) reject(err);
+                        else resolve();
+                    });
+                });
+                console.log("Fuel transactions seeded with 3L for test user.");
+            }
+        }
+    };
+
+    await seedFuelTransactions();
 
     console.log("Migration finished successfully.");
     process.exit(0);
