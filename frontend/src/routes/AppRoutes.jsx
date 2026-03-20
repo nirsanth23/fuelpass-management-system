@@ -8,6 +8,7 @@ import FuelStationLogin from "../pages/fuelstation/FuelStationLogin";
 
 import AdminDashboard from "../pages/admin/AdminDashboard";
 import FuelStationDashboard from "../pages/fuelstation/FuelStationDashboard";
+import UpdateVehicle from "../pages/user/UpdateVehicle";
 
 export default function AppRoutes() {
   return (
@@ -16,6 +17,7 @@ export default function AppRoutes() {
       <Route path="/user/login" element={<UserLogin />} />
       <Route path="/user/register" element={<UserRegister />} />
       <Route path="/user/dashboard" element={<UserDashboard />} />
+      <Route path="/user/update-vehicle" element={<UpdateVehicle />} />
       <Route path="/admin/login" element={<AdminLogin />} />
       <Route path="/admin/dashboard" element={<AdminDashboard />} />
       <Route path="/fuelstation/login" element={<FuelStationLogin />} />

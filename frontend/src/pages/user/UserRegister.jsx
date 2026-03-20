@@ -246,7 +246,27 @@ export default function UserRegister() {
                     type="text"
                     placeholder={idType === "nic" ? "Ex: 67889012V" : "Ex: N1234567"}
                     value={nicOrPassport}
-                    onChange={(e) => setNicOrPassport(e.target.value)}
+                    onChange={(e) => {
+                      setNicOrPassport(e.target.value);
+                      resetMessages();
+                    }}
+                    onBlur={async () => {
+                      if (isIdentityValid) {
+                        try {
+                          const response = await fetch(`${API_BASE_URL}/api/auth/check-nic`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ nic: nicOrPassport.trim() }),
+                          });
+                          const data = await response.json();
+                          if (data.exists) {
+                            setErrorMessage(data.message);
+                          }
+                        } catch (err) {
+                          console.error("NIC check failed", err);
+                        }
+                      }
+                    }}
                     className="w-[250px] rounded-lg border border-white/20 bg-white/10 px-4 py-3 text-white placeholder-gray-400 outline-none focus:ring-2 focus:ring-cyan-500"
                   />
 
@@ -284,11 +304,10 @@ export default function UserRegister() {
                   type="button"
                   onClick={handleSendOtp}
                   disabled={!isIdentityValid || !isEmailValid || isLoading}
-                  className={`w-full py-3 rounded-lg font-semibold transition ${
-                    isIdentityValid && isEmailValid && !isLoading
+                  className={`w-full py-3 rounded-lg font-semibold transition ${isIdentityValid && isEmailValid && !isLoading
                       ? "bg-gradient-to-r from-cyan-500 to-blue-600 cursor-pointer"
                       : "bg-gray-500/70 cursor-not-allowed"
-                  }`}
+                    }`}
                 >
                   {isLoading ? "Sending..." : "Send OTP"}
                 </button>
@@ -315,11 +334,10 @@ export default function UserRegister() {
                     type="button"
                     onClick={handleVerifyOtp}
                     disabled={!isOtpValid || isLoading}
-                    className={`w-full py-3 rounded-lg font-semibold transition ${
-                      isOtpValid && !isLoading
+                    className={`w-full py-3 rounded-lg font-semibold transition ${isOtpValid && !isLoading
                         ? "bg-gradient-to-r from-cyan-500 to-blue-600 cursor-pointer"
                         : "bg-gray-500/70 cursor-not-allowed"
-                    }`}
+                      }`}
                   >
                     {isLoading ? "Verifying..." : "Verify"}
                   </button>
@@ -395,11 +413,10 @@ export default function UserRegister() {
                 type="button"
                 onClick={handleNext}
                 disabled={!isPersonalValid}
-                className={`w-full py-3 rounded-lg font-semibold transition ${
-                  isPersonalValid
+                className={`w-full py-3 rounded-lg font-semibold transition ${isPersonalValid
                     ? "bg-gradient-to-r from-cyan-500 to-blue-600 cursor-pointer"
                     : "bg-gray-500/70 cursor-not-allowed"
-                }`}
+                  }`}
               >
                 Next
               </button>
@@ -478,8 +495,8 @@ export default function UserRegister() {
                   <option value="" className="text-gray-400">
                     Select Vehicle Type
                   </option>
-                  <option value="motorcycle" className="text-white">
-                    Motorcycle
+                  <option value="bike" className="text-white">
+                    Bike
                   </option>
                   <option value="threewheeler" className="text-white">
                     Three Wheeler
@@ -530,11 +547,10 @@ export default function UserRegister() {
               <button
                 type="submit"
                 disabled={!isVehicleValid || isLoading}
-                className={`w-full py-3 rounded-lg font-semibold transition ${
-                  isVehicleValid && !isLoading
+                className={`w-full py-3 rounded-lg font-semibold transition ${isVehicleValid && !isLoading
                     ? "bg-gradient-to-r from-cyan-500 to-blue-600 cursor-pointer hover:shadow-lg hover:shadow-cyan-500/20"
                     : "bg-gray-500/70 cursor-not-allowed opacity-70"
-                }`}
+                  }`}
               >
                 {isLoading ? "Registering..." : "Register"}
               </button>
