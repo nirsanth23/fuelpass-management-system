@@ -16,6 +16,7 @@ export default function UserRegister() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const [nicExists, setNicExists] = useState(false);
 
   const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "http://localhost:8081").replace(/\/$/, "");
 
@@ -53,7 +54,7 @@ export default function UserRegister() {
     personalDetails.firstName.trim() &&
     personalDetails.lastName.trim() &&
     personalDetails.address.trim() &&
-    personalDetails.phoneNumber.trim();
+    personalDetails.phoneNumber.trim().length === 9;
 
   const isVehicleValid =
     vehicleDetails.vehicleLetters.trim().length >= 2 &&
@@ -63,7 +64,7 @@ export default function UserRegister() {
     vehicleDetails.fuelType.trim();
 
   const handleSendOtp = async () => {
-    if (!isIdentityValid || !isEmailValid || isLoading) return;
+    if (!isIdentityValid || !isEmailValid || isLoading || nicExists) return;
 
     resetMessages();
     setIsLoading(true);
@@ -159,7 +160,11 @@ export default function UserRegister() {
       const finalData = {
         idType,
         nicOrPassport,
-        personalDetails,
+        email: email.trim(),
+        personalDetails: {
+          ...personalDetails,
+          phoneNumber: `+94${personalDetails.phoneNumber.trim()}`,
+        },
         vehicleDetails: {
           ...vehicleDetails,
           vehicleNumber: `${vehicleDetails.vehicleLetters} ${vehicleDetails.vehicleNumbers}`,
@@ -248,10 +253,11 @@ export default function UserRegister() {
                     value={nicOrPassport}
                     onChange={(e) => {
                       setNicOrPassport(e.target.value);
+                      setNicExists(false);
                       resetMessages();
                     }}
                     onBlur={async () => {
-                      if (isIdentityValid) {
+                      if (idType === "nic" && isIdentityValid) {
                         try {
                           const response = await fetch(`${API_BASE_URL}/api/auth/check-nic`, {
                             method: "POST",
@@ -260,14 +266,19 @@ export default function UserRegister() {
                           });
                           const data = await response.json();
                           if (data.exists) {
-                            setErrorMessage(data.message);
+                            setNicExists(true);
+                            const msg = data.email 
+                              ? `This NIC is already registered in ${data.email}`
+                              : (data.message || "This NIC is already registered");
+                            setErrorMessage(msg);
                           }
                         } catch (err) {
                           console.error("NIC check failed", err);
                         }
                       }
                     }}
-                    className="w-[250px] rounded-lg border border-white/20 bg-white/10 px-4 py-3 text-white placeholder-gray-400 outline-none focus:ring-2 focus:ring-cyan-500"
+                    className={`w-[250px] rounded-lg border px-4 py-3 text-white placeholder-gray-400 outline-none focus:ring-2 transition ${nicExists ? "border-red-500 focus:ring-red-500 bg-red-500/5" : "border-white/20 bg-white/10 focus:ring-cyan-500"
+                      }`}
                   />
 
                   <select
@@ -303,10 +314,10 @@ export default function UserRegister() {
                 <button
                   type="button"
                   onClick={handleSendOtp}
-                  disabled={!isIdentityValid || !isEmailValid || isLoading}
-                  className={`w-full py-3 rounded-lg font-semibold transition ${isIdentityValid && isEmailValid && !isLoading
-                      ? "bg-gradient-to-r from-cyan-500 to-blue-600 cursor-pointer"
-                      : "bg-gray-500/70 cursor-not-allowed"
+                  disabled={!isIdentityValid || !isEmailValid || isLoading || nicExists}
+                  className={`w-full py-3 rounded-lg font-semibold transition ${isIdentityValid && isEmailValid && !isLoading && !nicExists
+                    ? "bg-gradient-to-r from-cyan-500 to-blue-600 cursor-pointer"
+                    : "bg-gray-500/70 cursor-not-allowed opacity-50"
                     }`}
                 >
                   {isLoading ? "Sending..." : "Send OTP"}
@@ -335,8 +346,8 @@ export default function UserRegister() {
                     onClick={handleVerifyOtp}
                     disabled={!isOtpValid || isLoading}
                     className={`w-full py-3 rounded-lg font-semibold transition ${isOtpValid && !isLoading
-                        ? "bg-gradient-to-r from-cyan-500 to-blue-600 cursor-pointer"
-                        : "bg-gray-500/70 cursor-not-allowed"
+                      ? "bg-gradient-to-r from-cyan-500 to-blue-600 cursor-pointer"
+                      : "bg-gray-500/70 cursor-not-allowed"
                       }`}
                   >
                     {isLoading ? "Verifying..." : "Verify"}
@@ -395,18 +406,28 @@ export default function UserRegister() {
                 <label className="block mb-2 text-sm text-gray-300">
                   Phone Number
                 </label>
-                <input
-                  type="text"
-                  name="phoneNumber"
-                  value={personalDetails.phoneNumber}
-                  onChange={(e) =>
-                    setPersonalDetails((prev) => ({
-                      ...prev,
-                      phoneNumber: e.target.value.replace(/\D/g, ""),
-                    }))
-                  }
-                  className="w-full rounded-lg border border-white/20 bg-white/10 px-4 py-3 text-white outline-none focus:ring-2 focus:ring-cyan-500"
-                />
+                <div className="relative flex items-center">
+                  <span className="absolute left-4 text-gray-400 font-medium">+94</span>
+                  <input
+                    type="text"
+                    name="phoneNumber"
+                    placeholder="771234567"
+                    maxLength={9}
+                    value={personalDetails.phoneNumber}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/\D/g, "");
+                      // Prevent leading 0 if possible (or just handle it)
+                      const finalValue = value.startsWith("0") ? value.substring(1) : value;
+                      if (finalValue.length <= 9) {
+                        setPersonalDetails((prev) => ({
+                          ...prev,
+                          phoneNumber: finalValue,
+                        }));
+                      }
+                    }}
+                    className="w-full rounded-lg border border-white/20 bg-white/10 pl-14 pr-4 py-3 text-white outline-none focus:ring-2 focus:ring-cyan-500 placeholder:text-gray-500/50"
+                  />
+                </div>
               </div>
 
               <button
@@ -414,8 +435,8 @@ export default function UserRegister() {
                 onClick={handleNext}
                 disabled={!isPersonalValid}
                 className={`w-full py-3 rounded-lg font-semibold transition ${isPersonalValid
-                    ? "bg-gradient-to-r from-cyan-500 to-blue-600 cursor-pointer"
-                    : "bg-gray-500/70 cursor-not-allowed"
+                  ? "bg-gradient-to-r from-cyan-500 to-blue-600 cursor-pointer"
+                  : "bg-gray-500/70 cursor-not-allowed"
                   }`}
               >
                 Next
@@ -475,6 +496,7 @@ export default function UserRegister() {
                 </label>
                 <input
                   type="text"
+                  placeholder="Ex: ME35WQ..."
                   name="chassisNo"
                   value={vehicleDetails.chassisNo}
                   onChange={handleVehicleChange}
@@ -548,8 +570,8 @@ export default function UserRegister() {
                 type="submit"
                 disabled={!isVehicleValid || isLoading}
                 className={`w-full py-3 rounded-lg font-semibold transition ${isVehicleValid && !isLoading
-                    ? "bg-gradient-to-r from-cyan-500 to-blue-600 cursor-pointer hover:shadow-lg hover:shadow-cyan-500/20"
-                    : "bg-gray-500/70 cursor-not-allowed opacity-70"
+                  ? "bg-gradient-to-r from-cyan-500 to-blue-600 cursor-pointer hover:shadow-lg hover:shadow-cyan-500/20"
+                  : "bg-gray-500/70 cursor-not-allowed opacity-70"
                   }`}
               >
                 {isLoading ? "Registering..." : "Register"}

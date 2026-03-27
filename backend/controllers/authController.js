@@ -6,28 +6,11 @@ const {
   findValidOtp,
   deleteOtpById,
 } = require("../models/otpModel");
-const { 
-  findOrCreateUserByEmail,
-  getUserWithVehicleAndQuota,
-  findUserByNic,
-  updateVehicleDetails,
-  setFuelReservation
-} = require("../models/userModel");
-const { findStationById } = require("../models/stationModel");
+const { findOrCreateUserByEmail, getUserWithVehicleAndQuota } = require("../models/userModel");
 
 const getDbErrorMessage = (error) => {
-  if (!error) return "Unknown error";
-  
-  if (error.code === "EAUTH") {
-    return "Mail authentication failed. Check EMAIL_USER and EMAIL_PASS in .env.";
-  }
-
-  if (error.code === "ESOCKET" || error.code === "ETIMEDOUT") {
-    return "Network error. Please check your internet connection.";
-  }
-
-  if (!error.code) {
-    return "Internal server error";
+  if (!error || !error.code) {
+    return "Database error";
   }
 
   if (error.code === "ER_ACCESS_DENIED_ERROR") {
@@ -42,24 +25,43 @@ const getDbErrorMessage = (error) => {
     return "Database connection timeout. Check MySQL service status.";
   }
 
-  return "Database error: " + error.code;
+  return "Database error";
 };
 
 const sendOtp = async (req, res) => {
-  const { email } = req.body;
+  const { email, type } = req.body;
 
   const otp = Math.floor(1000 + Math.random() * 9000).toString();
   const normalizedEmail = email.trim().toLowerCase();
   const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
   try {
+    const userModel = require("../models/userModel");
+    
+    // Check if the email is already in use for registration
+    if (type === "register") {
+      const existingUser = await userModel.findUserByEmail(normalizedEmail);
+      // Only block if they are FULLY registered (have a NIC)
+      if (existingUser && existingUser.nic) {
+        return res.status(400).json({ message: "This email is already registered" });
+      }
+    }
+
+    // Check if the email is registered for login
+    if (type === "login") {
+      const existingUser = await userModel.findUserByEmail(normalizedEmail);
+      if (!existingUser) {
+        return res.status(404).json({ message: "This email is not registered. Please register first." });
+      }
+    }
+
     await deleteOtpsByEmail(normalizedEmail);
     await createOtp(normalizedEmail, otp, expiresAt);
     await sendOtpEmail(normalizedEmail, otp);
 
     return res.json({ message: "OTP sent successfully" });
   } catch (error) {
-    console.error("sendOtp Error:", error);
+    console.error("sendOtp error:", error);
     return res.status(500).json({ message: getDbErrorMessage(error) });
   }
 };
@@ -84,133 +86,56 @@ const verifyOtp = async (req, res) => {
       { expiresIn: "7d" }
     );
 
-    console.log(`OTP verified and user ${user.id} logged in`);
     return res.json({
       message: "OTP verified successfully",
+      registrationToken: token, // Frontend expects registrationToken
       token,
       user,
-      registrationToken: normalizedEmail,
     });
   } catch (error) {
-    console.error("verifyOtp Error:", error);
     return res.status(500).json({ message: getDbErrorMessage(error) });
   }
 };
 
 const getMe = async (req, res) => {
   try {
-    const userData = await getUserWithVehicleAndQuota(req.user.userId);
+    const { vehicleNumber } = req.query;
+    const user = await getUserWithVehicleAndQuota(req.user.userId, vehicleNumber);
 
-    if (!userData) {
+    if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    return res.json({ user: userData });
+    return res.json({ user });
   } catch (error) {
-    console.error("getMe Error:", error);
     return res.status(500).json({ message: getDbErrorMessage(error) });
   }
 };
 
-const register = async (req, res) => {
-  const { registrationToken, personalDetails, vehicleDetails, nicOrPassport } = req.body;
-  const email = registrationToken;
-
+const getVehicles = async (req, res) => {
   try {
-    const userId = await createUserWithDetails({
-      nic: nicOrPassport,
-      firstName: personalDetails.firstName,
-      lastName: personalDetails.lastName,
-      address: personalDetails.address,
-      phoneNumber: personalDetails.phoneNumber,
-      email: email,
-    });
-
-    await createVehicle({
-      userId,
-      vehicleNumber: vehicleDetails.vehicleNumber,
-      chassisNo: vehicleDetails.chassisNo,
-      vehicleType: vehicleDetails.vehicleType,
-      fuelType: vehicleDetails.fuelType,
-    });
-
-    return res.json({ message: "Registration successful" });
+    const vehicles = await require("../models/userModel").getVehiclesByUserId(req.user.userId);
+    return res.json({ vehicles });
   } catch (error) {
-    console.error("register Error:", error);
     return res.status(500).json({ message: getDbErrorMessage(error) });
   }
 };
 
-const stationLogin = async (req, res) => {
-  const { stationId, password } = req.body;
-
-  if (stationId === "station1" && password === "12345") {
-    return res.json({
-      message: "Login successful",
-      station: { station_id: "station1", name: "Station 1" },
-      token: "mock-token-for-station",
-    });
-  }
-
-  try {
-    const station = await findStationById(stationId);
-    if (station && station.password === password) {
-      return res.json({
-        message: "Login successful",
-        station,
-        token: "mock-token-for-station",
-      });
-    }
-    return res.status(401).json({ message: "Invalid credentials" });
-  } catch (error) {
-    console.error("stationLogin Error:", error);
-    return res.status(500).json({ message: getDbErrorMessage(error) });
-  }
-};
-
-const checkNic = async (req, res) => {
-  const { nic } = req.body;
-  if (!nic) return res.status(400).json({ message: "NIC is required" });
-
-  try {
-    const user = await findUserByNic(nic);
-    if (user) {
-      return res.json({ exists: true, message: "This NIC is already registered." });
-    }
-    return res.json({ exists: false });
-  } catch (error) {
-    console.error("checkNic Error:", error);
-    return res.status(500).json({ message: getDbErrorMessage(error) });
-  }
-};
-
-const updateVehicle = async (req, res) => {
+const addVehicle = async (req, res) => {
   const { vehicleNumber, chassisNo, vehicleType, fuelType } = req.body;
-  const userId = req.user.userId;
-
   try {
-    await updateVehicleDetails(userId, {
+    await require("../models/userModel").createVehicle({
+      userId: req.user.userId,
       vehicleNumber,
       chassisNo,
       vehicleType,
-      fuelType,
+      fuelType
     });
-    return res.json({ message: "Vehicle details updated successfully" });
+    return res.status(201).json({ message: "Vehicle added successfully" });
   } catch (error) {
-    console.error("updateVehicle Error:", error);
-    return res.status(500).json({ message: getDbErrorMessage(error) });
-  }
-};
-
-const reserveFuel = async (req, res) => {
-  const { reservedUntil } = req.body;
-  const userId = req.user.userId;
-
-  try {
-    await setFuelReservation(userId, reservedUntil);
-    return res.json({ message: "Fuel reserved successfully" });
-  } catch (error) {
-    console.error("reserveFuel Error:", error);
+    if (error.code === 'ER_DUP_ENTRY') {
+      return res.status(400).json({ message: "This vehicle is already registered" });
+    }
     return res.status(500).json({ message: getDbErrorMessage(error) });
   }
 };
@@ -219,9 +144,134 @@ module.exports = {
   sendOtp,
   verifyOtp,
   getMe,
-  register,
-  stationLogin,
-  checkNic,
-  updateVehicle,
-  reserveFuel,
+  getVehicles,
+  addVehicle,
+  // New handlers below
+  register: async (req, res) => {
+    const { nicOrPassport, personalDetails, vehicleDetails, email: reqEmail } = req.body;
+    try {
+      const email = reqEmail.trim().toLowerCase();
+      const userModel = require("../models/userModel");
+
+      // Find the existing user created by verifyOtp
+      const existingUser = await userModel.findUserByEmail(email);
+      if (!existingUser) {
+        return res.status(400).json({ message: "Email verification required" });
+      }
+
+      // Destructure nested objects from frontend
+      const { firstName, lastName, address, phoneNumber } = personalDetails;
+      const { vehicleNumber, chassisNo, vehicleType, fuelType } = vehicleDetails;
+      
+      // Update existing user record instead of inserting a new one
+      await userModel.updateUserByEmail({ 
+        nic: nicOrPassport, 
+        firstName, 
+        lastName, 
+        address, 
+        phoneNumber, 
+        email 
+      });
+
+      // Create vehicle linked to the existing user ID
+      await userModel.createVehicle({ 
+        userId: existingUser.id, 
+        vehicleNumber, 
+        chassisNo, 
+        vehicleType, 
+        fuelType 
+      });
+
+      // Fetch the full updated user record for auto-login
+      const user = await userModel.findUserByEmail(email);
+
+      // Generate JWT token for auto-login
+      const token = jwt.sign(
+        { userId: user.id, email: user.email },
+        process.env.JWT_SECRET,
+        { expiresIn: "7d" }
+      );
+
+      return res.status(201).json({ 
+        message: "User registered successfully",
+        token,
+        user
+      });
+    } catch (error) {
+      console.error("Register error:", error);
+      if (error.code === 'ER_DUP_ENTRY') {
+        const msg = error.sqlMessage || "";
+        if (msg.includes('users.email')) {
+          return res.status(400).json({ message: "This email is already registered" });
+        }
+        if (msg.includes('users.nic')) {
+          return res.status(400).json({ message: "This NIC is already registered" });
+        }
+        return res.status(400).json({ message: "This email or NIC is already registered" });
+      }
+      return res.status(500).json({ message: getDbErrorMessage(error) });
+    }
+  },
+
+  stationLogin: async (req, res) => {
+    const { stationId, password } = req.body;
+    try {
+      const station = await require("../models/stationModel").findStationById(stationId);
+      if (!station || station.password !== password) {
+        return res.status(401).json({ message: "Invalid station credentials" });
+      }
+      // You may want to generate a token for station login as well
+      return res.json({ message: "Station login successful", station });
+    } catch (error) {
+      return res.status(500).json({ message: "Station login failed" });
+    }
+  },
+
+  checkNic: async (req, res) => {
+    const { nic } = req.body;
+    try {
+      const user = await require("../models/userModel").findUserByNic(nic);
+      if (user) {
+        return res.json({ 
+          exists: true, 
+          message: "This NIC is already registered",
+          email: user.email 
+        });
+      }
+      return res.json({ exists: false });
+    } catch (error) {
+      return res.status(500).json({ message: getDbErrorMessage(error) });
+    }
+  },
+
+  updateVehicle: async (req, res) => {
+    const userId = req.user.userId;
+    const { vehicleId, vehicleNumber, chassisNo, vehicleType, fuelType } = req.body;
+    try {
+      const affected = await require("../models/userModel").updateVehicleDetails(vehicleId, { vehicleNumber, chassisNo, vehicleType, fuelType });
+      if (affected) {
+        return res.json({ message: "Vehicle updated successfully" });
+      }
+      
+      // If no rows were updated, it means the vehicle record doesn't exist yet for this user.
+      // Let's create it now to handle users setting up for the first time.
+      await require("../models/userModel").createVehicle({ userId, vehicleNumber, chassisNo, vehicleType, fuelType });
+      return res.json({ message: "Vehicle details saved successfully" });
+    } catch (error) {
+      return res.status(500).json({ message: getDbErrorMessage(error) });
+    }
+  },
+
+  reserveFuel: async (req, res) => {
+    const { vehicleId, reservedUntil } = req.body;
+    try {
+      const affected = await require("../models/userModel").setFuelReservation(vehicleId, reservedUntil);
+      if (affected) {
+        return res.json({ message: "Fuel reserved successfully" });
+      }
+      return res.status(404).json({ message: "Vehicle not found" });
+    } catch (error) {
+      return res.status(500).json({ message: getDbErrorMessage(error) });
+    }
+  },
 };

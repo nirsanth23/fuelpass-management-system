@@ -1,13 +1,17 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Car, Save, AlertCircle, CheckCircle } from "lucide-react";
 
 export default function UpdateVehicle() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const vehicleNumberParam = searchParams.get("vehicleNumber") || "";
+
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [vehicleId, setVehicleId] = useState(null);
 
   const [vehicleDetails, setVehicleDetails] = useState({
     vehicleLetters: "",
@@ -28,7 +32,11 @@ export default function UpdateVehicle() {
       }
 
       try {
-        const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
+        const url = vehicleNumberParam 
+          ? `${API_BASE_URL}/api/auth/me?vehicleNumber=${encodeURIComponent(vehicleNumberParam)}`
+          : `${API_BASE_URL}/api/auth/me`;
+
+        const response = await fetch(url, {
           headers: { Authorization: `Bearer ${token}` },
         });
 
@@ -36,6 +44,10 @@ export default function UpdateVehicle() {
 
         const data = await response.json();
         const user = data.user;
+        
+        if (user && user.vehicle_id) {
+          setVehicleId(user.vehicle_id);
+        }
 
         if (user && user.vehicle_number) {
           const parts = user.vehicle_number.split(" ");
@@ -74,6 +86,7 @@ export default function UpdateVehicle() {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
+          vehicleId: vehicleId,
           vehicleNumber: finalVehicleNumber,
           chassisNo: vehicleDetails.chassisNo,
           vehicleType: vehicleDetails.vehicleType,
@@ -85,7 +98,7 @@ export default function UpdateVehicle() {
       if (!response.ok) throw new Error(data.message || "Update failed");
 
       setSuccess("Vehicle details updated successfully!");
-      setTimeout(() => navigate("/user/dashboard"), 1500);
+      setTimeout(() => navigate(`/user/dashboard?vehicleNumber=${encodeURIComponent(finalVehicleNumber)}`), 1500);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -102,8 +115,8 @@ export default function UpdateVehicle() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0B1220] text-white px-6 py-10">
-      <div className="max-w-xl mx-auto">
+    <div className="h-screen bg-[#0B1220] text-white px-6 overflow-hidden flex flex-col justify-center">
+      <div className="max-w-xl mx-auto w-full">
         <button
           onClick={() => navigate("/user/dashboard")}
           className="mb-8 flex items-center gap-2 text-cyan-400 hover:text-cyan-300 transition cursor-pointer"

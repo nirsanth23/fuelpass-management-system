@@ -1,51 +1,69 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { Fuel, Calendar, Car, AlertCircle, LogOut, User, Edit, X, Check } from "lucide-react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { Fuel, Calendar, Car, AlertCircle, LogOut, User, Edit, X, Check, ChevronDown, Plus } from "lucide-react";
 
 export default function UserDashboard() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [userData, setUserData] = useState(null);
+  const [vehicles, setVehicles] = useState([]);
+  const [selectedVehicle, setSelectedVehicle] = useState("");
+  const [showVehicles, setShowVehicles] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showQr, setShowQr] = useState(false);
   const [reservedUntil, setReservedUntil] = useState(null);
 
-  useEffect(() => {
-    const fetchUserData = async () => {
-      const token = localStorage.getItem("fuelpass_token");
-      if (!token) {
-        navigate("/user/login");
-        return;
+  const fetchUserData = async (vNum = "") => {
+    const token = localStorage.getItem("fuelpass_token");
+    if (!token) {
+      navigate("/user/login");
+      return;
+    }
+
+    const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "http://localhost:8081").replace(/\/$/, "");
+
+    try {
+      // Fetch user data with optional vehicle filter
+      const url = vNum ? `${API_BASE_URL}/api/auth/me?vehicleNumber=${encodeURIComponent(vNum)}` : `${API_BASE_URL}/api/auth/me`;
+      const response = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || "Failed to fetch user data");
+
+      setUserData(data.user);
+      if (data.user && data.user.vehicle_number) {
+        setSelectedVehicle(data.user.vehicle_number);
       }
 
-      const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "http://localhost:8081").replace(/\/$/, "");
-
-      try {
-        const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error("Failed to fetch user data");
-        }
-
-        const data = await response.json();
-        setUserData(data.user);
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
+      // Fetch all vehicles for this user
+      const vResponse = await fetch(`${API_BASE_URL}/api/auth/vehicles`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const vData = await vResponse.json();
+      if (vResponse.ok) {
+        setVehicles(vData.vehicles || []);
       }
-    };
 
-    fetchUserData();
-  }, [navigate]);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    if (userData && userData.reserved_until) {
-      setReservedUntil(userData.reserved_until);
+    const vNum = searchParams.get("vehicleNumber") || "";
+    fetchUserData(vNum);
+  }, [navigate, searchParams]);
+
+  useEffect(() => {
+    if (userData) {
+      setReservedUntil(userData.reserved_until || null);
+    } else {
+      setReservedUntil(null);
     }
   }, [userData]);
 
@@ -89,44 +107,90 @@ export default function UserDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0B1220] text-white px-6 py-10">
-      <div className="max-w-4xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold">
-            <span className="bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-600 bg-clip-text text-transparent border-b-2 border-transparent hover:border-cyan-400 transition cursor-default">
+    <div className="h-screen bg-[#0B1220] text-white px-6 py-6 overflow-hidden flex flex-col">
+      <div className="max-w-5xl mx-auto w-full flex-1 flex flex-col">
+        <div className="flex flex-col xl:flex-row xl:items-center justify-between mb-8 gap-4">
+          <h1 className="text-3xl font-extrabold whitespace-nowrap">
+            <span className="bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-600 bg-clip-text text-transparent">
               FuelPass Dashboard
             </span>
           </h1>
-          <button
-            onClick={() => {
-              localStorage.removeItem("fuelpass_token");
-              localStorage.removeItem("fuelpass_user");
-              navigate("/user/login", { replace: true });
-            }}
-            className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-cyan-400 hover:text-cyan-300 transition px-4 py-2 rounded-lg cursor-pointer border border-white/5"
-          >
-            <LogOut size={18} /> Logout
-          </button>
-        </div>
 
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="relative group">
+              <button
+                className="flex items-center gap-3 bg-white/5 hover:bg-white/10 px-4 py-2.5 rounded-xl border border-white/10 transition cursor-pointer"
+                onClick={() => setShowVehicles(!showVehicles)}
+              >
+                <Car className="text-cyan-400" size={18} />
+                <span className="text-lg font-mono font-bold text-white uppercase">
+                  {selectedVehicle || "---"}
+                </span>
+                {vehicles.length > 1 && (
+                  <ChevronDown size={16} className={`text-gray-500 transition-transform ${showVehicles ? 'rotate-180' : ''}`} />
+                )}
+              </button>
+
+              {showVehicles && vehicles.length > 1 && (
+                <div className="absolute top-full left-0 xl:left-auto xl:right-0 mt-3 w-64 bg-[#16213A] border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 backdrop-blur-xl">
+                  {vehicles
+                    .filter(v => v.vehicle_number !== selectedVehicle)
+                    .map(v => (
+                      <button
+                        key={v.vehicle_number}
+                        onClick={() => {
+                          setSelectedVehicle(v.vehicle_number);
+                          setShowVehicles(false);
+                          fetchUserData(v.vehicle_number);
+                        }}
+                        className="w-full px-4 py-3 text-left hover:bg-white/10 transition flex items-center justify-between group"
+                      >
+                        <div className="flex items-center gap-3">
+                          <Car size={16} className="text-gray-500 group-hover:text-cyan-400" />
+                          <span className="text-gray-300 group-hover:text-white font-mono">{v.vehicle_number}</span>
+                        </div>
+                        <div className="text-[10px] bg-white/10 px-2 py-0.5 rounded text-gray-400">Switch</div>
+                      </button>
+                    ))}
+                </div>
+              )}
+            </div>
+
+            <div className="h-8 w-[1px] bg-white/10 hidden sm:block mx-1"></div>
+
+            <button
+              onClick={() => navigate("/user/add-vehicle")}
+              className="flex items-center gap-2 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 transition px-4 py-2.5 rounded-xl cursor-pointer border border-cyan-500/30 text-sm font-bold"
+            >
+              <Plus size={18} /> Add Vehicle
+            </button>
+            <button
+              onClick={() => {
+                localStorage.removeItem("fuelpass_token");
+                localStorage.removeItem("fuelpass_user");
+                navigate("/user/login", { replace: true });
+              }}
+              className="flex items-center gap-2 bg-white/5 hover:bg-red-500/10 text-gray-500 hover:text-red-400 transition px-4 py-2.5 rounded-xl cursor-pointer border border-white/10 text-sm font-bold"
+            >
+              <LogOut size={18} /> Logout
+            </button>
+          </div>
+        </div>
         {error && (
           <div className="mb-6 p-4 rounded-xl border border-red-500/30 bg-red-500/10 text-red-400 flex items-center gap-3">
             <AlertCircle size={20} />
             <p>{error}</p>
           </div>
         )}
-
         <div className="grid gap-6 md:grid-cols-3 mb-8">
           <div className="md:col-span-2 rounded-2xl border border-white/10 bg-white/5 p-8 relative overflow-hidden">
-            <div className="absolute top-0 right-0 p-6 opacity-10">
-              <Fuel size={120} className="text-cyan-400" />
+            <div className="absolute -bottom-8 left-100 p-6 opacity-10 -rotate-12">
+              <Fuel size={160} className="text-cyan-400" />
             </div>
-
             <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
               <Fuel size={24} className="text-cyan-400" />
               Weekly Fuel Quota
             </h2>
-
             {quota ? (
               <div className="space-y-6">
                 <div className="flex justify-between items-end mb-2">
@@ -139,44 +203,57 @@ export default function UserDashboard() {
                     <p className="text-gray-400 text-sm">Total Allowance</p>
                   </div>
                 </div>
-
-                <div className="w-full bg-white/10 rounded-full h-4 overflow-hidden">
-                  <div
-                    className="bg-gradient-to-r from-cyan-500 to-blue-600 h-full transition-all duration-500"
-                    style={{ width: `${(quota.used / quota.totalQuota) * 100}%` }}
-                  ></div>
+                <div className="w-full bg-white/10 rounded-full h-4 overflow-hidden flex">
+                  {reservedUntil ? (
+                    <>
+                      <div
+                        className="h-full bg-gradient-to-r from-cyan-400 to-blue-500 transition-all duration-500"
+                        style={{ width: `${(Math.max(0, quota.remaining - 3) / quota.totalQuota) * 100}%` }}
+                      ></div>
+                      <div
+                        className="h-full bg-gradient-to-r from-emerald-400 to-green-600 transition-all duration-500"
+                        style={{ width: `${(Math.min(quota.remaining, 3) / quota.totalQuota) * 100}%` }}
+                      ></div>
+                    </>
+                  ) : (
+                    <div
+                      className="h-full bg-gradient-to-r from-cyan-400 to-blue-500 transition-all duration-500"
+                      style={{ width: `${(quota.remaining / quota.totalQuota) * 100}%` }}
+                    ></div>
+                  )}
                 </div>
-
-                <div className="flex gap-6 text-sm">
-                  <div className="flex items-center gap-2 text-gray-300">
-                    <div className="w-3 h-3 rounded-full bg-cyan-500"></div>
+                <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
+                  <div className="flex items-center gap-2 text-cyan-400">
+                    <div className="w-3 h-3 rounded-full bg-cyan-400 shadow-sm shadow-cyan-400/20"></div>
+                    Available: {reservedUntil ? Math.max(0, quota.remaining - 3) : quota.remaining}L
+                  </div>
+                  {reservedUntil && (
+                    <div className="flex items-center gap-2 text-emerald-400">
+                      <div className="w-3 h-3 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400/20"></div>
+                      Reserved: {Math.min(quota.remaining, 3)}L
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2 text-gray-400">
+                    <div className="w-3 h-3 rounded-full bg-gray-400"></div>
                     Used: {quota.used}L
                   </div>
-                  <div className="flex items-center gap-2 text-gray-300">
-                    <div className="w-3 h-3 rounded-full bg-white/20"></div>
-                    Available: {quota.remaining}L
-                  </div>
                 </div>
-
                 <div className="pt-4 border-t border-white/10 flex flex-col gap-4">
                   <div className="flex items-center gap-2 text-sm text-gray-400">
                     <Calendar size={16} className="text-cyan-400" />
                     Cycle: {formatDate(userData.week_start)} to {formatDate(userData.week_end)}
                   </div>
-                                    <button 
+                  <button
                     onClick={async () => {
                       const isUnreserving = !!reservedUntil;
                       let dbDate = null;
-                      
                       if (!isUnreserving) {
                         const nextEnd = new Date(userData.week_end);
                         nextEnd.setDate(nextEnd.getDate() + 7);
                         dbDate = nextEnd.toISOString().split('T')[0];
                       }
-                      
                       const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "http://localhost:8081").replace(/\/$/, "");
                       const token = localStorage.getItem("fuelpass_token");
-                      
                       try {
                         const response = await fetch(`${API_BASE_URL}/api/auth/reserve-fuel`, {
                           method: "POST",
@@ -184,9 +261,11 @@ export default function UserDashboard() {
                             "Content-Type": "application/json",
                             Authorization: `Bearer ${token}`,
                           },
-                          body: JSON.stringify({ reservedUntil: dbDate }),
+                          body: JSON.stringify({
+                            vehicleId: userData.vehicle_id,
+                            reservedUntil: dbDate
+                          }),
                         });
-
                         if (response.ok) {
                           setReservedUntil(dbDate);
                         }
@@ -194,11 +273,10 @@ export default function UserDashboard() {
                         console.error("Reservation update failed:", err);
                       }
                     }}
-                    className={`w-full py-3 rounded-xl font-bold transition flex items-center justify-center gap-2 group cursor-pointer ${
-                      reservedUntil 
-                        ? "bg-green-500/10 border border-green-500/30 text-green-400 hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-400" 
-                        : "bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20 shadow-lg shadow-cyan-500/5"
-                    }`}
+                    className={`w-full py-3 rounded-xl font-bold transition flex items-center justify-center gap-2 group cursor-pointer ${reservedUntil
+                      ? "bg-green-500/10 border border-green-500/30 text-green-400 hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-400"
+                      : "bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20 shadow-lg shadow-cyan-500/5"
+                      }`}
                   >
                     {reservedUntil ? (
                       <>
@@ -211,8 +289,6 @@ export default function UserDashboard() {
                       "Reserve Fuel"
                     )}
                   </button>
-
-                  {/* Reservation Message Removed */}
                 </div>
               </div>
             ) : (
@@ -255,7 +331,7 @@ export default function UserDashboard() {
             </div>
 
             <button
-              onClick={() => navigate("/user/update-vehicle")}
+              onClick={() => navigate(`/user/update-vehicle?vehicleNumber=${encodeURIComponent(selectedVehicle)}`)}
               className="mt-6 w-full py-3 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-cyan-400 hover:text-cyan-300 transition text-sm flex items-center justify-center gap-2 cursor-pointer"
             >
               <Edit size={16} /> Update Details
@@ -263,7 +339,7 @@ export default function UserDashboard() {
           </div>
         </div>
         <div className="grid gap-6">
-          <div 
+          <div
             onClick={() => setShowQr(true)}
             className="rounded-2xl border border-blue-400/30 bg-blue-500/10 p-8 flex items-center justify-between group cursor-pointer hover:bg-blue-500/20 transition shadow-lg shadow-blue-500/5"
           >
@@ -282,13 +358,13 @@ export default function UserDashboard() {
       {showQr && userData && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
           <div className="relative w-full max-w-sm rounded-[32px] bg-[#16213A] border border-white/10 p-8 shadow-2xl animate-in zoom-in-95 duration-300">
-            <button 
+            <button
               onClick={() => setShowQr(false)}
               className="absolute top-6 right-6 p-2 rounded-full hover:bg-white/5 transition text-gray-400 hover:text-white cursor-pointer"
             >
               <X size={24} />
             </button>
-            
+
             <div className="text-center">
               <div className="mb-6 inline-flex p-4 rounded-2xl bg-cyan-500/10 border border-cyan-500/20">
                 <Fuel size={32} className="text-cyan-400" />

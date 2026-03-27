@@ -19,9 +19,9 @@ const validateVerifyOtpInput = (req, res, next) => {
 };
 
 const validateRegisterInput = (req, res, next) => {
-  const { registrationToken, personalDetails, vehicleDetails, nicOrPassport } = req.body;
+  const { registrationToken, personalDetails, vehicleDetails, nicOrPassport, email } = req.body;
 
-  if (!registrationToken || !personalDetails || !vehicleDetails || !nicOrPassport) {
+  if (!registrationToken || !personalDetails || !vehicleDetails || !nicOrPassport || !email) {
     return res.status(400).json({ message: "Missing required registration details" });
   }
 
