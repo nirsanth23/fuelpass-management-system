@@ -5,13 +5,31 @@ const findUserByEmail = (email) =>
   new Promise((resolve, reject) => {
     db.query(
       {
-        sql: "SELECT id, email, created_at FROM users WHERE email = ? LIMIT 1",
+        sql: "SELECT id, email, nic, created_at FROM users WHERE email = ? LIMIT 1",
         timeout: QUERY_TIMEOUT_MS,
       },
       [email],
       (err, results) => {
         if (err) return reject(err);
         resolve(results[0] || null);
+      }
+    );
+  });
+
+const updateUserByEmail = (userData) =>
+  new Promise((resolve, reject) => {
+    const { nic, firstName, lastName, address, phoneNumber, email } = userData;
+    const query = `
+      UPDATE users 
+      SET nic = ?, first_name = ?, last_name = ?, address = ?, phone_number = ?
+      WHERE email = ?
+    `;
+    db.query(
+      { sql: query, timeout: QUERY_TIMEOUT_MS },
+      [nic, firstName, lastName, address, phoneNumber, email],
+      (err, result) => {
+        if (err) return reject(err);
+        resolve(result.affectedRows);
       }
     );
   });
@@ -101,36 +119,58 @@ const findOrCreateUserByEmail = (email) =>
     );
   });
 
-const getUserWithVehicleAndQuota = (userId) =>
+const getVehiclesByUserId = (userId) =>
   new Promise((resolve, reject) => {
-    const query = `
-      SELECT u.id, u.email, v.vehicle_type, v.fuel_type, v.vehicle_number, v.chassis_no, v.reserved_until,
+    db.query(
+      {
+        sql: "SELECT id, vehicle_number, vehicle_type, fuel_type, chassis_no FROM vehicles WHERE user_id = ?",
+        timeout: QUERY_TIMEOUT_MS,
+      },
+      [userId],
+      (err, results) => {
+        if (err) return reject(err);
+        resolve(results);
+      }
+    );
+  });
+
+const getUserWithVehicleAndQuota = (userId, vehicleNumber = null) =>
+  new Promise((resolve, reject) => {
+    let query = `
+      SELECT u.id, u.email, v.id as vehicle_id, v.vehicle_type, v.fuel_type, v.vehicle_number, v.chassis_no, v.reserved_until,
              (SELECT SUM(amount) FROM fuel_transactions 
-              WHERE user_id = u.id AND created_at >= DATE_SUB(NOW(), INTERVAL (DAYOFWEEK(NOW()) + 4) % 7 DAY)) as used_fuel,
+              WHERE vehicle_id = v.id AND created_at >= DATE_SUB(NOW(), INTERVAL (DAYOFWEEK(NOW()) + 4) % 7 DAY)) as used_fuel,
              DATE_SUB(NOW(), INTERVAL (DAYOFWEEK(NOW()) + 4) % 7 DAY) as week_start,
              DATE_ADD(DATE_SUB(NOW(), INTERVAL (DAYOFWEEK(NOW()) + 4) % 7 DAY), INTERVAL 6 DAY) as week_end
       FROM users u
       LEFT JOIN vehicles v ON u.id = v.user_id
       WHERE u.id = ?
-      LIMIT 1
     `;
-    db.query({ sql: query, timeout: QUERY_TIMEOUT_MS }, [userId], (err, results) => {
+
+    const params = [userId];
+    if (vehicleNumber) {
+      query += " AND v.vehicle_number = ?";
+      params.push(vehicleNumber);
+    }
+    query += " LIMIT 1";
+
+    db.query({ sql: query, timeout: QUERY_TIMEOUT_MS }, params, (err, results) => {
       if (err) return reject(err);
       resolve(results[0] || null);
     });
   });
 
-const updateVehicleDetails = (userId, vehicleData) =>
+const updateVehicleDetails = (vehicleId, vehicleData) =>
   new Promise((resolve, reject) => {
     const { vehicleNumber, chassisNo, vehicleType, fuelType } = vehicleData;
     const query = `
       UPDATE vehicles 
       SET vehicle_number = ?, chassis_no = ?, vehicle_type = ?, fuel_type = ?
-      WHERE user_id = ?
+      WHERE id = ?
     `;
     db.query(
       { sql: query, timeout: QUERY_TIMEOUT_MS },
-      [vehicleNumber, chassisNo, vehicleType, fuelType, userId],
+      [vehicleNumber, chassisNo, vehicleType, fuelType, vehicleId],
       (err, result) => {
         if (err) return reject(err);
         resolve(result.affectedRows);
@@ -138,21 +178,24 @@ const updateVehicleDetails = (userId, vehicleData) =>
     );
   });
 
-const setFuelReservation = (userId, reservedUntil) =>
+const setFuelReservation = (vehicleId, reservedUntil) =>
   new Promise((resolve, reject) => {
-    const query = "UPDATE vehicles SET reserved_until = ? WHERE user_id = ?";
-    db.query({ sql: query, timeout: QUERY_TIMEOUT_MS }, [reservedUntil, userId], (err, result) => {
+    const query = "UPDATE vehicles SET reserved_until = ? WHERE id = ?";
+    db.query({ sql: query, timeout: QUERY_TIMEOUT_MS }, [reservedUntil, vehicleId], (err, result) => {
       if (err) return reject(err);
       resolve(result.affectedRows);
     });
   });
 
 module.exports = {
+  findUserByEmail,
   createUserWithDetails,
   createVehicle,
   findOrCreateUserByEmail,
   getUserWithVehicleAndQuota,
+  getVehiclesByUserId,
   findUserByNic,
+  updateUserByEmail,
   updateVehicleDetails,
   setFuelReservation,
 };

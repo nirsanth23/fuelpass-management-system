@@ -1,77 +1,26 @@
-import React, { useState, useEffect } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Car, Save, AlertCircle, CheckCircle } from "lucide-react";
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { ArrowLeft, Car, Plus, AlertCircle, CheckCircle } from "lucide-react";
 
-export default function UpdateVehicle() {
+export default function AddVehicle() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const vehicleNumberParam = searchParams.get("vehicleNumber") || "";
-
-  const [loading, setLoading] = useState(true);
-  const [updating, setUpdating] = useState(false);
+  const [adding, setAdding] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [vehicleId, setVehicleId] = useState(null);
 
   const [vehicleDetails, setVehicleDetails] = useState({
     vehicleLetters: "",
     vehicleNumbers: "",
     chassisNo: "",
-    vehicleType: "",
-    fuelType: "",
+    vehicleType: "car",
+    fuelType: "petrol92",
   });
 
   const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "http://localhost:8081").replace(/\/$/, "");
 
-  useEffect(() => {
-    const fetchCurrentDetails = async () => {
-      const token = localStorage.getItem("fuelpass_token");
-      if (!token) {
-        navigate("/user/login");
-        return;
-      }
-
-      try {
-        const url = vehicleNumberParam 
-          ? `${API_BASE_URL}/api/auth/me?vehicleNumber=${encodeURIComponent(vehicleNumberParam)}`
-          : `${API_BASE_URL}/api/auth/me`;
-
-        const response = await fetch(url, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-
-        if (!response.ok) throw new Error("Failed to fetch details");
-
-        const data = await response.json();
-        const user = data.user;
-        
-        if (user && user.vehicle_id) {
-          setVehicleId(user.vehicle_id);
-        }
-
-        if (user && user.vehicle_number) {
-          const parts = user.vehicle_number.split(" ");
-          setVehicleDetails({
-            vehicleLetters: parts[0] || "",
-            vehicleNumbers: parts[1] || "",
-            chassisNo: user.chassis_no || "",
-            vehicleType: user.vehicle_type.toLowerCase() === "motorcycle" ? "bike" : user.vehicle_type || "",
-            fuelType: user.fuel_type || "",
-          });
-        }
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchCurrentDetails();
-  }, [navigate, API_BASE_URL]);
-
-  const handleUpdate = async (e) => {
+  const handleAdd = async (e) => {
     e.preventDefault();
-    setUpdating(true);
+    setAdding(true);
     setError("");
     setSuccess("");
 
@@ -79,14 +28,13 @@ export default function UpdateVehicle() {
     const finalVehicleNumber = `${vehicleDetails.vehicleLetters} ${vehicleDetails.vehicleNumbers}`;
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/auth/vehicle`, {
-        method: "PUT",
+      const response = await fetch(`${API_BASE_URL}/api/auth/vehicles`, {
+        method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          vehicleId: vehicleId,
           vehicleNumber: finalVehicleNumber,
           chassisNo: vehicleDetails.chassisNo,
           vehicleType: vehicleDetails.vehicleType,
@@ -95,24 +43,16 @@ export default function UpdateVehicle() {
       });
 
       const data = await response.json();
-      if (!response.ok) throw new Error(data.message || "Update failed");
+      if (!response.ok) throw new Error(data.message || "Failed to add vehicle");
 
-      setSuccess("Vehicle details updated successfully!");
+      setSuccess("Vehicle added successfully!");
       setTimeout(() => navigate(`/user/dashboard?vehicleNumber=${encodeURIComponent(finalVehicleNumber)}`), 1500);
     } catch (err) {
       setError(err.message);
     } finally {
-      setUpdating(false);
+      setAdding(false);
     }
   };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#0B1220] flex items-center justify-center text-white">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-cyan-400"></div>
-      </div>
-    );
-  }
 
   return (
     <div className="h-screen bg-[#0B1220] text-white px-6 overflow-hidden flex flex-col justify-center">
@@ -127,9 +67,9 @@ export default function UpdateVehicle() {
         <div className="rounded-2xl border border-white/10 bg-white/5 p-8 shadow-2xl">
           <div className="flex items-center gap-3 mb-8">
             <div className="w-12 h-12 rounded-xl bg-cyan-400/20 flex items-center justify-center">
-              <Car className="text-cyan-400" />
+              <Plus className="text-cyan-400" />
             </div>
-            <h1 className="text-2xl font-bold">Update Vehicle Details</h1>
+            <h1 className="text-2xl font-bold">Add More Vehicle</h1>
           </div>
 
           {error && (
@@ -146,7 +86,7 @@ export default function UpdateVehicle() {
             </div>
           )}
 
-          <form onSubmit={handleUpdate} className="space-y-6">
+          <form onSubmit={handleAdd} className="space-y-6">
             <div>
               <label className="block mb-2 text-sm text-gray-400 uppercase tracking-wider font-semibold">
                 Vehicle Number
@@ -179,6 +119,7 @@ export default function UpdateVehicle() {
               </label>
               <input
                 type="text"
+                placeholder="Ex: ME35WQ..."
                 value={vehicleDetails.chassisNo}
                 onChange={(e) => setVehicleDetails(p => ({ ...p, chassisNo: e.target.value }))}
                 className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:ring-2 focus:ring-cyan-500 transition"
@@ -224,10 +165,10 @@ export default function UpdateVehicle() {
 
             <button
               type="submit"
-              disabled={updating}
+              disabled={adding}
               className="w-full py-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold text-lg hover:shadow-lg hover:shadow-cyan-500/20 transition flex items-center justify-center gap-2 disabled:opacity-70 cursor-pointer"
             >
-              {updating ? "Updating..." : <><Save size={20} /> Save Changes</>}
+              {adding ? "Adding..." : <><Car size={20} /> Add Vehicle</>}
             </button>
           </form>
         </div>
