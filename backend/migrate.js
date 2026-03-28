@@ -26,15 +26,6 @@ async function migrate() {
     });
     console.log("Users table created/verified.");
 
-    // Add columns to existing users table if they don't exist
-    const alterQueries = [
-      "ALTER TABLE users ADD COLUMN nic VARCHAR(20) UNIQUE;",
-      "ALTER TABLE users ADD COLUMN first_name VARCHAR(50);",
-      "ALTER TABLE users ADD COLUMN last_name VARCHAR(50);",
-      "ALTER TABLE users ADD COLUMN address TEXT;",
-      "ALTER TABLE users ADD COLUMN phone_number VARCHAR(20);"
-    ];
-
     const createVehiclesTable = `
       CREATE TABLE IF NOT EXISTS vehicles (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -55,36 +46,118 @@ async function migrate() {
         else resolve();
       });
     });
-    // Vehicles table changes
-    const alterVehiclesQueries = [
-      "ALTER TABLE vehicles ADD COLUMN reserved_until DATE;"
-    ];
+    console.log("Vehicles table created/verified.");
 
-    for (const query of alterVehiclesQueries) {
-      await new Promise((resolve) => {
-        db.query(query, () => resolve()); // Ignore errors if column exists
-      });
-    }
-
-    const createUserOtpsTable = `
-      CREATE TABLE IF NOT EXISTS user_otps (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        email VARCHAR(255) NOT NULL,
-        otp CHAR(4) NOT NULL,
-        expires_at DATETIME NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        INDEX idx_email_created (email, created_at),
-        INDEX idx_email_otp (email, otp)
+    const createFuelStationsTable = `
+      CREATE TABLE IF NOT EXISTS fuel_stations (
+        station_id VARCHAR(50) PRIMARY KEY,
+        name VARCHAR(100),
+        location VARCHAR(100),
+        password VARCHAR(255) NOT NULL,
+        status ENUM('Active', 'Inactive') DEFAULT 'Active',
+        petrol_stock DECIMAL(10, 2) DEFAULT 0,
+        diesel_stock DECIMAL(10, 2) DEFAULT 0,
+        last_supplied_date DATE,
+        last_supplied_petrol DECIMAL(10, 2) DEFAULT 0,
+        last_supplied_diesel DECIMAL(10, 2) DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `;
-
+    
     await new Promise((resolve, reject) => {
-      db.query(createUserOtpsTable, (err) => {
+      db.query(createFuelStationsTable, (err) => {
         if (err) reject(err);
         else resolve();
       });
     });
-    console.log("User OTPs table created/verified.");
+
+    const addColumnIfNotExists = async (table, column, definition) => {
+      const checkQuery = `SHOW COLUMNS FROM ${table} LIKE '${column}'`;
+      const result = await new Promise((resolve, reject) => {
+        db.query(checkQuery, (err, results) => {
+          if (err) reject(err);
+          else resolve(results);
+        });
+      });
+
+      if (result.length === 0) {
+        console.log(`Adding column ${column} to ${table}...`);
+        await new Promise((resolve, reject) => {
+          db.query(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`, (err) => {
+            if (err) reject(err);
+            else resolve();
+          });
+        });
+      }
+    };
+
+    await addColumnIfNotExists('fuel_stations', 'name', 'VARCHAR(100)');
+    await addColumnIfNotExists('fuel_stations', 'location', 'VARCHAR(100)');
+    await addColumnIfNotExists('fuel_stations', 'status', "ENUM('Active', 'Inactive') DEFAULT 'Active'");
+    await addColumnIfNotExists('fuel_stations', 'petrol_stock', 'DECIMAL(10, 2) DEFAULT 0');
+    await addColumnIfNotExists('fuel_stations', 'diesel_stock', 'DECIMAL(10, 2) DEFAULT 0');
+    await addColumnIfNotExists('fuel_stations', 'last_supplied_date', 'DATE');
+    await addColumnIfNotExists('fuel_stations', 'last_supplied_petrol', 'DECIMAL(10, 2) DEFAULT 0');
+    await addColumnIfNotExists('fuel_stations', 'last_supplied_diesel', 'DECIMAL(10, 2) DEFAULT 0');
+    console.log("Fuel stations table columns checked/added.");
+
+    const createFuelQuotaRulesTable = `
+      CREATE TABLE IF NOT EXISTS fuel_quota_rules (
+        vehicle_type VARCHAR(50) PRIMARY KEY,
+        weekly_limit DECIMAL(10, 2) NOT NULL,
+        carry_forward_limit DECIMAL(10, 2) NOT NULL
+      );
+    `;
+
+    await new Promise((resolve, reject) => {
+      db.query(createFuelQuotaRulesTable, (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+    console.log("Fuel quota rules table created.");
+
+    const seedQuotaRules = async () => {
+      const rules = [
+        ['Bike', 5, 2],
+        ['Car', 20, 5],
+        ['Three Wheeler', 8, 2],
+        ['Van', 15, 3]
+      ];
+      for (const [type, weekly, carry] of rules) {
+        await new Promise((resolve) => {
+          db.query('INSERT IGNORE INTO fuel_quota_rules (vehicle_type, weekly_limit, carry_forward_limit) VALUES (?, ?, ?)', [type, weekly, carry], () => resolve());
+        });
+      }
+    };
+    await seedQuotaRules();
+    console.log("Quota rules seeded.");
+
+    const createFuelTransactionsTable = `
+      CREATE TABLE IF NOT EXISTS fuel_transactions (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        vehicle_id INT,
+        station_id VARCHAR(50),
+        fuel_type VARCHAR(20),
+        amount DECIMAL(10, 2) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (station_id) REFERENCES fuel_stations(station_id) ON DELETE SET NULL
+      );
+    `;
+
+    await new Promise((resolve, reject) => {
+      db.query(createFuelTransactionsTable, (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+
+    await addColumnIfNotExists('fuel_transactions', 'vehicle_id', 'INT');
+    await addColumnIfNotExists('fuel_transactions', 'station_id', 'VARCHAR(50)');
+    await addColumnIfNotExists('fuel_transactions', 'fuel_type', 'VARCHAR(20)');
+    console.log("Fuel transactions table columns checked/added.");
 
     const createNotificationsTable = `
       CREATE TABLE IF NOT EXISTS admin_notifications (
@@ -105,97 +178,69 @@ async function migrate() {
       });
     });
     console.log("Admin notifications table created/verified.");
-    
-    // Fuel Stations table
-    const createFuelStationsTable = `
-      CREATE TABLE IF NOT EXISTS fuel_stations (
-        station_id VARCHAR(50) PRIMARY KEY,
-        password VARCHAR(255) NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+
+    const createSupplyHistoryTable = `
+      CREATE TABLE IF NOT EXISTS fuel_supply_history (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        station_id VARCHAR(50),
+        petrol_amount DECIMAL(10, 2) NOT NULL,
+        diesel_amount DECIMAL(10, 2) NOT NULL,
+        supplied_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (station_id) REFERENCES fuel_stations(station_id) ON DELETE CASCADE
       );
     `;
-    
     await new Promise((resolve, reject) => {
-      db.query(createFuelStationsTable, (err) => {
+      db.query(createSupplyHistoryTable, (err) => {
         if (err) reject(err);
         else resolve();
       });
     });
-    console.log("Fuel stations table created/verified.");
+    console.log("Fuel supply history table created.");
 
-    // Seed fuel stations if empty
     const seedFuelStations = async () => {
+      // Clear existing stations to ensure we have exactly the set we want
+      await new Promise((resolve) => {
+        db.query('DELETE FROM fuel_stations', () => resolve());
+      });
+
       const stations = [
-        ['station1', '1234'],
-        ['station2', '2345'],
-        ['station3', '12345'] // Initial default for station3
+        ['ST001', 'IOC Pettah', 'Colombo 01', '1234', 'Active', 5000, 3000, '2026-03-10', 1200, 800],
+        ['ST002', 'CPC Borella', 'Colombo 08', '1234', 'Active', 4500, 2500, '2026-03-08', 1000, 500],
+        ['ST003', 'Lanka Fuel Mart', 'Bambalapitiya', '1234', 'Active', 3000, 2000, '2026-03-22', 600, 400],
+        ['ST004', 'Ceypetco Havelock', 'Havelock Town', '1234', 'Active', 4200, 2800, '2026-03-21', 700, 500],
+        ['ST005', 'IOC Kirulapone', 'Kirulapone', '1234', 'Active', 3500, 2200, '2026-03-20', 600, 500],
+        ['ST006', 'CPC Narahenpita', 'Narahenpita', '1234', 'Active', 4800, 3100, '2026-03-23', 900, 600],
+        ['ST007', 'Lanka Filling St', 'Rajagiriya', '1234', 'Active', 3900, 2400, '2026-03-19', 800, 500],
+        ['ST008', 'IOC Wellawatte', 'Wellawatte', '1234', 'Active', 4100, 2700, '2026-03-24', 800, 600],
+        ['ST009', 'CPC Slave Island', 'Slave Island', '1234', 'Active', 3700, 2100, '2026-03-18', 600, 400],
+        ['ST010', 'Lanka Fuel Maradana', 'Maradana', '1234', 'Active', 4400, 2900, '2026-03-25', 1000, 600]
       ];
       
-      for (const [id, pass] of stations) {
-        await new Promise((resolve, reject) => {
-          db.query('INSERT IGNORE INTO fuel_stations (station_id, password) VALUES (?, ?)', [id, pass], (err) => {
-            if (err) reject(err);
-            else resolve();
-          });
+      for (const [id, name, loc, pass, status, p_stock, d_stock, l_date, l_petrol, l_diesel] of stations) {
+        await new Promise((resolve) => {
+          db.query(`INSERT INTO fuel_stations (station_id, name, location, password, status, petrol_stock, diesel_stock, last_supplied_date, last_supplied_petrol, last_supplied_diesel) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [id, name, loc, pass, status, p_stock, d_stock, l_date, l_petrol, l_diesel], () => resolve());
         });
       }
     };
-    
     await seedFuelStations();
-    console.log("Fuel stations seeded.");
+    console.log("10 Colombo fuel stations seeded.");
 
-    const createFuelTransactionsTable = `
-      CREATE TABLE IF NOT EXISTS fuel_transactions (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        user_id INT NOT NULL,
-        amount DECIMAL(10, 2) NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-      );
-    `;
-
-    await new Promise((resolve, reject) => {
-      db.query(createFuelTransactionsTable, (err) => {
-        if (err) reject(err);
-        else resolve();
-      });
-    });
-    console.log("Fuel transactions table created/verified.");
-
-    // Seed some test fuel transactions if empty
-    const seedFuelTransactions = async () => {
-        const checkQuery = "SELECT COUNT(*) as count FROM fuel_transactions";
-        const result = await new Promise((resolve, reject) => {
-            db.query(checkQuery, (err, results) => {
-                if (err) reject(err);
-                else resolve(results[0].count);
-            });
+    const seedSupplyHistory = async () => {
+      const history = [
+        ['ST001', 1200, 800, '2026-03-10 10:30:00'],
+        ['ST001', 1000, 700, '2026-03-01 09:15:00'],
+        ['ST002', 1000, 500, '2026-03-08 14:20:00'],
+        ['ST003', 600, 400, '2026-03-22 11:00:00']
+      ];
+      for (const [id, petrol, diesel, date] of history) {
+        await new Promise((resolve) => {
+          db.query('INSERT IGNORE INTO fuel_supply_history (station_id, petrol_amount, diesel_amount, supplied_at) VALUES (?, ?, ?, ?)', [id, petrol, diesel, date], () => resolve());
         });
-
-        if (result === 0) {
-            // Find a user to assign transactions to
-            const userResult = await new Promise((resolve, reject) => {
-                db.query("SELECT id FROM users LIMIT 1", (err, results) => {
-                    if (err) reject(err);
-                    else resolve(results[0]);
-                });
-            });
-
-            if (userResult) {
-                const userId = userResult.id;
-                // Add a 3L transaction for testing (as per user request: "if he already get 3L")
-                await new Promise((resolve, reject) => {
-                    db.query("INSERT INTO fuel_transactions (user_id, amount) VALUES (?, ?)", [userId, 3.0], (err) => {
-                        if (err) reject(err);
-                        else resolve();
-                    });
-                });
-                console.log("Fuel transactions seeded with 3L for test user.");
-            }
-        }
+      }
     };
-
-    await seedFuelTransactions();
+    await seedSupplyHistory();
+    console.log("Initial supply history seeded.");
 
     console.log("Migration finished successfully.");
     process.exit(0);
