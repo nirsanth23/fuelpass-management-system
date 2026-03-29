@@ -23,7 +23,8 @@ export default function AdminOverview() {
   const [analytics, setAnalytics] = useState({
     dailyUsage: [],
     fuelTypeUsage: [],
-    activeStations: []
+    activeStations: [],
+    lowStockStations: []
   });
 
   const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "http://localhost:8081").replace(/\/$/, "");
@@ -145,53 +146,78 @@ export default function AdminOverview() {
           <StatCard title="Issued Today" value={`${stats.total_fuel_issued_today}L`} icon={Check} color="text-amber-400" />
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <div className="bg-white/5 border border-white/10 p-8 rounded-3xl">
-            <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
-              <TrendingUp className="text-fuchsia-400" /> Consumption Trend (7 Days)
-            </h3>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={analytics.dailyUsage}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
-                  <XAxis dataKey="date" stroke="#9CA3AF" fontSize={12} tickFormatter={(val) => new Date(val).toLocaleDateString([], {weekday: 'short'})} />
-                  <YAxis stroke="#9CA3AF" fontSize={12} />
-                  <Tooltip 
-                    contentStyle={{ backgroundColor: '#16213A', border: 'none', borderRadius: '12px' }}
-                    itemStyle={{ color: '#F472B6' }}
-                  />
-                  <Bar dataKey="total" fill="#D946EF" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+        {/* Consumption Trend - Full Width */}
+        <div className="bg-white/5 border border-white/10 p-8 rounded-3xl mb-8">
+          <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
+            <TrendingUp className="text-fuchsia-400" /> Consumption Trend (7 Days)
+          </h3>
+          <div className="h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={analytics.dailyUsage}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
+                <XAxis dataKey="date" stroke="#9CA3AF" fontSize={12} tickFormatter={(val) => new Date(val).toLocaleDateString([], {weekday: 'short', month: 'short', day: 'numeric'})} />
+                <YAxis stroke="#9CA3AF" fontSize={12} />
+                <Tooltip 
+                  contentStyle={{ backgroundColor: '#16213A', border: 'none', borderRadius: '12px' }}
+                  labelFormatter={(val) => new Date(val).toLocaleDateString([], {weekday: 'long', year: 'numeric', month: 'short', day: 'numeric'})}
+                />
+                <Legend />
+                <Bar dataKey="petrol" name="Petrol" fill="#F472B6" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="diesel" name="Diesel" fill="#60A5FA" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
           </div>
+        </div>
 
-          <div className="bg-white/5 border border-white/10 p-8 rounded-3xl">
-            <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
-              <PieIcon className="text-blue-400" /> Fuel Type Comparison
-            </h3>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={analytics.fuelTypeUsage}
-                    dataKey="total"
-                    nameKey="fuel_type"
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={80}
-                    paddingAngle={5}
-                  >
-                    {analytics.fuelTypeUsage.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip contentStyle={{ backgroundColor: '#16213A', border: 'none', borderRadius: '12px' }} />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
+        {/* Low Stock Warning - Full Width Below */}
+        <div className="bg-white/5 border border-white/10 p-8 rounded-3xl">
+          <h3 className="text-xl font-bold mb-6 flex items-center gap-2 text-red-400">
+            🚨 Low Stock Warning
+          </h3>
+          <div className="overflow-y-auto pr-2 custom-scrollbar max-h-80">
+            {(!analytics.lowStockStations || analytics.lowStockStations.length === 0) ? (
+              <p className="text-gray-400 text-sm italic">All stations have sufficient stock.</p>
+            ) : (
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="text-xs font-bold text-gray-400 uppercase tracking-wider border-b border-white/10">
+                    <th className="px-4 py-3">Station ID</th>
+                    <th className="px-4 py-3">Station Name</th>
+                    <th className="px-4 py-3">Location</th>
+                    <th className="px-4 py-3 text-right">Petrol</th>
+                    <th className="px-4 py-3 text-right">Diesel</th>
+                    <th className="px-4 py-3 text-right">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {analytics.lowStockStations.map((station) => {
+                    const minStock = Math.min(station.petrol_stock, station.diesel_stock);
+                    const isCritical = minStock < 500;
+                    
+                    return (
+                      <tr key={station.station_id} className="hover:bg-white/5 transition">
+                        <td className="px-4 py-3 text-gray-300 font-mono text-sm">{station.station_id}</td>
+                        <td className="px-4 py-3 font-semibold text-white">{station.station_name}</td>
+                        <td className="px-4 py-3 text-gray-400 text-sm">{station.location || '—'}</td>
+                        <td className={`px-4 py-3 text-right font-mono text-sm ${station.petrol_stock < 1000 ? 'text-red-400' : 'text-fuchsia-300'}`}>{station.petrol_stock}L</td>
+                        <td className={`px-4 py-3 text-right font-mono text-sm ${station.diesel_stock < 1000 ? 'text-red-400' : 'text-blue-300'}`}>{station.diesel_stock}L</td>
+                        <td className="px-4 py-3 text-right">
+                          {isCritical ? (
+                            <span className="text-red-400 bg-red-400/10 px-3 py-1 rounded-lg text-xs font-bold inline-flex items-center gap-1">
+                              🔴 Critical
+                            </span>
+                          ) : (
+                            <span className="text-yellow-400 bg-yellow-400/10 px-3 py-1 rounded-lg text-xs font-bold inline-flex items-center gap-1">
+                              🟡 Low
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
       </div>

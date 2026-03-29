@@ -119,9 +119,26 @@ const updateStation = (stationId, updateData) => {
 const getAnalyticsData = () => {
   return new Promise((resolve, reject) => {
     const queries = {
-      dailyUsage: "SELECT DATE(created_at) as date, SUM(amount) as total FROM fuel_transactions GROUP BY DATE(created_at) ORDER BY date DESC LIMIT 7",
+      dailyUsage: `
+        SELECT d.date,
+          COALESCE(SUM(CASE WHEN t.fuel_type = 'Petrol' THEN t.amount ELSE 0 END), 0) as petrol,
+          COALESCE(SUM(CASE WHEN t.fuel_type = 'Diesel' THEN t.amount ELSE 0 END), 0) as diesel
+        FROM (
+          SELECT CURDATE() as date
+          UNION ALL SELECT DATE_SUB(CURDATE(), INTERVAL 1 DAY)
+          UNION ALL SELECT DATE_SUB(CURDATE(), INTERVAL 2 DAY)
+          UNION ALL SELECT DATE_SUB(CURDATE(), INTERVAL 3 DAY)
+          UNION ALL SELECT DATE_SUB(CURDATE(), INTERVAL 4 DAY)
+          UNION ALL SELECT DATE_SUB(CURDATE(), INTERVAL 5 DAY)
+          UNION ALL SELECT DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+        ) d
+        LEFT JOIN fuel_transactions t ON DATE(t.created_at) = d.date
+        GROUP BY d.date
+        ORDER BY d.date ASC
+      `,
       fuelTypeUsage: "SELECT fuel_type, SUM(amount) as total FROM fuel_transactions GROUP BY fuel_type",
-      activeStations: "SELECT s.name, COUNT(t.id) as count FROM fuel_transactions t JOIN fuel_stations s ON t.station_id = s.station_id GROUP BY s.station_id ORDER BY count DESC LIMIT 5"
+      activeStations: "SELECT s.name, COUNT(t.id) as count FROM fuel_transactions t JOIN fuel_stations s ON t.station_id = s.station_id GROUP BY s.station_id ORDER BY count DESC LIMIT 5",
+      lowStockStations: "SELECT station_id, name as station_name, location, petrol_stock, diesel_stock, status FROM fuel_stations WHERE petrol_stock <= 1000 OR diesel_stock <= 1000 ORDER BY LEAST(petrol_stock, diesel_stock) ASC LIMIT 15"
     };
 
     const results = {};
