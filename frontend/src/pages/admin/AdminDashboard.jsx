@@ -307,7 +307,7 @@ export default function AdminDashboard() {
 
         {/* Tab Content */}
         {activeTab === 'home' && (
-          <div className="animate-in fade-in duration-500">
+          <div className="animate-in fade-in duration-700">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
               <StatCard title="Petrol Stock" value={`${stats.total_petrol_stock}L`} icon={Fuel} color="text-fuchsia-400" />
               <StatCard title="Diesel Stock" value={`${stats.total_diesel_stock}L`} icon={Fuel} color="text-blue-400" />
