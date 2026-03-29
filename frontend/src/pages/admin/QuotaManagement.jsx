@@ -146,9 +146,9 @@ export default function QuotaManagement() {
             setNewVehicleData({ vehicleType: '', weeklyLimit: 0, carryForwardLimit: 0, category: 'Light Vehicles' });
             setShowAddModal(true);
           }}
-          className="flex items-center gap-2 text-gray-300 bg-transparent border border-fuchsia-500 hover:bg-fuchsia-600 hover:text-white px-4 py-2.5 rounded-xl font-bold transition cursor-pointer"
+          className="group flex items-center gap-2 text-gray-300 bg-transparent border border-fuchsia-500 hover:bg-fuchsia-600 hover:text-white px-4 py-2.5 rounded-xl font-bold transition cursor-pointer"
         >
-          <Plus size={18} /> Add Vehicle
+          <Plus size={18} className="text-fuchsia-500 group-hover:text-white transition" /> Add Vehicle
         </button>
       </div>
 

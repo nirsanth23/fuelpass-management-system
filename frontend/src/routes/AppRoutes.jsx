@@ -1,3 +1,4 @@
+import React from "react";
 import { Routes, Route } from "react-router-dom";
 import RoleSelection from "../pages/RoleSelection";
 import UserLogin from "../pages/user/UserLogin";
@@ -12,9 +13,11 @@ import QuotaManagement from "../pages/admin/QuotaManagement";
 import StationManagement from "../pages/admin/StationManagement";
 import StationSupply from "../pages/admin/StationSupply";
 
+
 import FuelStationDashboard from "../pages/fuelstation/FuelStationDashboard";
 import UpdateVehicle from "../pages/user/UpdateVehicle";
 import AddVehicle from "../pages/user/AddVehicle";
+import MonthlyReportGenerator from "../pages/admin/MonthlyReportGenerator";
 
 export default function AppRoutes() {
   return (
@@ -28,11 +31,13 @@ export default function AppRoutes() {
       <Route path="/admin/login" element={<AdminLogin />} />
       
       {/* Refactored Admin Routes */}
+
       <Route path="/admin/dashboard" element={<AdminLayout />}>
         <Route index element={<AdminOverview />} />
         <Route path="quota" element={<QuotaManagement />} />
         <Route path="stations" element={<StationManagement />} />
         <Route path="supply" element={<StationSupply />} />
+        <Route path="monthly-report" element={<MonthlyReportGenerator />} />
       </Route>
 
       <Route path="/fuelstation/login" element={<FuelStationLogin />} />

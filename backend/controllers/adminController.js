@@ -1,3 +1,13 @@
+const deleteStation = async (req, res) => {
+  const { stationId } = req.params;
+  try {
+    await adminModel.deleteStation(stationId);
+    return res.json({ message: "Station deleted successfully." });
+  } catch (error) {
+    console.error("deleteStation Error:", error);
+    return res.status(500).json({ message: "Failed to delete station." });
+  }
+};
 const adminModel = require("../models/adminModel");
 const { sendPasswordEmail } = require("../utils/sendEmail");
 
@@ -204,4 +214,5 @@ module.exports = {
   updateStationDetails,
   getStationSupplyHistory,
   getAnalytics
+  ,deleteStation
 };

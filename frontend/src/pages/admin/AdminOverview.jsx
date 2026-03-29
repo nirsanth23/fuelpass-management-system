@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { generateMonthlyReportPDF } from "./MonthlyReportGenerator";
 import { 
   Fuel, Activity, TrendingUp, PieChart as PieIcon, Check, MapPin, Bell, X 
 } from "lucide-react";
@@ -90,51 +91,69 @@ export default function AdminOverview() {
 
   const COLORS = ['#F472B6', '#8B5CF6', '#6366F1', '#34D399', '#FBBF24'];
 
+  const handleGenerateReport = () => {
+    generateMonthlyReportPDF();
+  };
+
   return (
     <div className="p-10">
-      <div className="flex justify-between items-center mb-10">
-        <h2 className="text-3xl font-bold">Dashboard Overview</h2>
-        
-        <div className="relative">
-          <button
-            onClick={() => setShowNotifications(!showNotifications)}
-            className="relative p-2.5 bg-white/5 hover:bg-white/10 rounded-xl transition cursor-pointer border border-white/10"
-          >
-            <Bell size={20} className="text-gray-300" />
-            {notifications.length > 0 && (
-              <span className="absolute top-0 right-0 h-4 w-4 bg-red-500 rounded-full text-[10px] font-bold flex items-center justify-center border-2 border-[#0B1220]">
-                {notifications.length}
-              </span>
-            )}
-          </button>
+        <div className="flex justify-between items-center mb-10">
+          <div className="flex items-center gap-4">
+            <h2 className="text-3xl font-bold">Dashboard Overview</h2>
+            <span className="bg-gradient-to-r from-fuchsia-500 to-purple-500 text-white text-sm font-bold px-5 py-1 rounded-2xl shadow">
+              Colombo District
+            </span>
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="relative">
+            <button
+              onClick={() => setShowNotifications(!showNotifications)}
+              className="relative p-2.5 bg-white/5 hover:bg-white/10 rounded-xl transition cursor-pointer border border-white/10"
+            >
+              <Bell size={20} className="text-fuchsia-500" />
+              {notifications.length > 0 && (
+                <span className="absolute top-0 right-0 h-4 w-4 bg-red-500 rounded-full text-[10px] font-bold flex items-center justify-center border-2 border-[#0B1220]">
+                  {notifications.length}
+                </span>
+              )}
+            </button>
 
-          {showNotifications && (
-            <div className="absolute right-0 mt-3 w-80 bg-[#16213A] border border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden">
-              <div className="p-4 border-b border-white/10 flex justify-between items-center">
-                <h3 className="font-bold text-fuchsia-300">Reset Requests</h3>
-                <X size={16} className="cursor-pointer text-gray-500" onClick={() => setShowNotifications(false)} />
+            {showNotifications && (
+              <div className="absolute right-0 mt-3 w-80 bg-[#16213A] border border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden">
+                <div className="p-4 border-b border-white/10 flex justify-between items-center">
+                  <h3 className="font-bold text-fuchsia-300">Reset Requests</h3>
+                  <X size={16} className="cursor-pointer text-gray-500" onClick={() => setShowNotifications(false)} />
+                </div>
+                <div className="max-h-96 overflow-y-auto">
+                  {notifications.length === 0 ? (
+                    <p className="p-4 text-center text-gray-400 text-sm">Clear</p>
+                  ) : (
+                    notifications.map(n => (
+                      <div key={n.id} className="p-4 border-b border-white/5 hover:bg-white/5 transition">
+                        <p className="text-sm font-bold">{n.station_username}</p>
+                        <p className="text-xs text-gray-400">{n.email}</p>
+                        <button 
+                          onClick={() => handleApprove(n)}
+                          disabled={loadingId === n.id}
+                          className="mt-2 w-full py-1.5 bg-fuchsia-500 text-white rounded-lg text-xs font-bold transition hover:bg-fuchsia-600 disabled:opacity-50"
+                        >
+                          {loadingId === n.id ? "Sending..." : "Approve & Send"}
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
-              <div className="max-h-96 overflow-y-auto">
-                {notifications.length === 0 ? (
-                  <p className="p-4 text-center text-gray-400 text-sm">Clear</p>
-                ) : (
-                  notifications.map(n => (
-                    <div key={n.id} className="p-4 border-b border-white/5 hover:bg-white/5 transition">
-                      <p className="text-sm font-bold">{n.station_username}</p>
-                      <p className="text-xs text-gray-400">{n.email}</p>
-                      <button 
-                        onClick={() => handleApprove(n)}
-                        disabled={loadingId === n.id}
-                        className="mt-2 w-full py-1.5 bg-fuchsia-500 text-white rounded-lg text-xs font-bold transition hover:bg-fuchsia-600 disabled:opacity-50"
-                      >
-                        {loadingId === n.id ? "Sending..." : "Approve & Send"}
-                      </button>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          )}
+            )}
+          </div>
+          {/* Generate Report Button */}
+          <button
+            onClick={handleGenerateReport}
+            className="ml-2 px-4 py-2 bg-fuchsia-600 hover:bg-fuchsia-700 text-white font-semibold rounded-xl shadow transition border border-fuchsia-700 cursor-pointer"
+          >
+            
+            Generate Report
+          </button>
         </div>
       </div>
 
