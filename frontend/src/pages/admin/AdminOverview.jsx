@@ -174,7 +174,7 @@ export default function AdminOverview() {
           <h3 className="text-xl font-bold mb-6 flex items-center gap-2 text-red-400">
             🚨 Low Stock Warning
           </h3>
-          <div className="overflow-y-auto pr-2 custom-scrollbar max-h-80">
+          <div className="overflow-y-auto pr-2 custom-scrollbar max-h-80 low-stock-scrollbar" style={{maxHeight: '18rem'}}>
             {(!analytics.lowStockStations || analytics.lowStockStations.length === 0) ? (
               <p className="text-gray-400 text-sm italic">All stations have sufficient stock.</p>
             ) : (
@@ -190,10 +190,9 @@ export default function AdminOverview() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
-                  {analytics.lowStockStations.map((station) => {
+                  {analytics.lowStockStations.slice(0, 5).map((station) => {
                     const minStock = Math.min(station.petrol_stock, station.diesel_stock);
                     const isCritical = minStock < 500;
-                    
                     return (
                       <tr key={station.station_id} className="hover:bg-white/5 transition">
                         <td className="px-4 py-3 text-gray-300 font-mono text-sm">{station.station_id}</td>
@@ -208,7 +207,31 @@ export default function AdminOverview() {
                             </span>
                           ) : (
                             <span className="text-yellow-400 bg-yellow-400/10 px-3 py-1 rounded-lg text-xs font-bold inline-flex items-center gap-1">
-                              🟡 Low
+                              ⚠️ Warning
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {analytics.lowStockStations.slice(5).map((station) => {
+                    const minStock = Math.min(station.petrol_stock, station.diesel_stock);
+                    const isCritical = minStock < 500;
+                    return (
+                      <tr key={station.station_id} className="hover:bg-white/5 transition">
+                        <td className="px-4 py-3 text-gray-300 font-mono text-sm">{station.station_id}</td>
+                        <td className="px-4 py-3 font-semibold text-white">{station.station_name}</td>
+                        <td className="px-4 py-3 text-gray-400 text-sm">{station.location || '—'}</td>
+                        <td className={`px-4 py-3 text-right font-mono text-sm ${station.petrol_stock < 1000 ? 'text-red-400' : 'text-fuchsia-300'}`}>{station.petrol_stock}L</td>
+                        <td className={`px-4 py-3 text-right font-mono text-sm ${station.diesel_stock < 1000 ? 'text-red-400' : 'text-blue-300'}`}>{station.diesel_stock}L</td>
+                        <td className="px-4 py-3 text-right">
+                          {isCritical ? (
+                            <span className="text-red-400 bg-red-400/10 px-3 py-1 rounded-lg text-xs font-bold inline-flex items-center gap-1">
+                              🔴 Critical
+                            </span>
+                          ) : (
+                            <span className="text-yellow-400 bg-yellow-400/10 px-3 py-1 rounded-lg text-xs font-bold inline-flex items-center gap-1">
+                              ⚠️ Warning
                             </span>
                           )}
                         </td>

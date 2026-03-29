@@ -21,10 +21,21 @@ body {
   @apply w-full px-4 py-3 rounded-lg bg-white/10 border border-white/20 outline-none text-white placeholder:text-white/50;
 }
 
-.scrollbar-hide::-webkit-scrollbar {
-  display: none;
+
+/* Professional dark scrollbar for low stock warning */
+.low-stock-scrollbar::-webkit-scrollbar {
+  width: 10px;
+  background: #181f2a;
 }
-.scrollbar-hide {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
+.low-stock-scrollbar::-webkit-scrollbar-thumb {
+  background: #232b3b;
+  border-radius: 8px;
+  border: 2px solid #181f2a;
+}
+.low-stock-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #374151;
+}
+.low-stock-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #232b3b #181f2a;
 }

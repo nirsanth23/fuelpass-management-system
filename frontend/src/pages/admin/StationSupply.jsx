@@ -102,7 +102,7 @@ export default function StationSupply() {
             {filteredStations.map(s => (
               <tr key={s.station_id} className="hover:bg-white/5 transition group">
                 <td className="px-6 py-4 min-w-[200px]">
-                  <p className="font-bold text-white">{s.name}</p>
+                  <p className="font-semibold text-white">{s.name}</p>
                   <p className="text-xs text-gray-500 font-mono">{s.station_id}</p>
                 </td>
                 <td className="px-6 py-4 font-mono text-fuchsia-300 text-sm">{s.petrol_stock}L</td>
