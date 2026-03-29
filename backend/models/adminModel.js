@@ -137,7 +137,13 @@ const getAnalyticsData = () => {
         ORDER BY d.date ASC
       `,
       fuelTypeUsage: "SELECT fuel_type, SUM(amount) as total FROM fuel_transactions GROUP BY fuel_type",
-      activeStations: "SELECT s.name, COUNT(t.id) as count FROM fuel_transactions t JOIN fuel_stations s ON t.station_id = s.station_id GROUP BY s.station_id ORDER BY count DESC LIMIT 5",
+      activeStations: `SELECT s.name, SUM(t.amount) as total_fuel
+        FROM fuel_transactions t
+        JOIN fuel_stations s ON t.station_id = s.station_id
+        WHERE t.created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+        GROUP BY s.station_id
+        ORDER BY total_fuel DESC
+        LIMIT 5`,
       lowStockStations: "SELECT station_id, name as station_name, location, petrol_stock, diesel_stock, status FROM fuel_stations WHERE petrol_stock <= 1000 OR diesel_stock <= 1000 ORDER BY LEAST(petrol_stock, diesel_stock) ASC LIMIT 15"
     };
 

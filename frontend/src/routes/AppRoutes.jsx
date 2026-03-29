@@ -11,7 +11,6 @@ import AdminOverview from "../pages/admin/AdminOverview";
 import QuotaManagement from "../pages/admin/QuotaManagement";
 import StationManagement from "../pages/admin/StationManagement";
 import StationSupply from "../pages/admin/StationSupply";
-import Analytics from "../pages/admin/Analytics";
 
 import FuelStationDashboard from "../pages/fuelstation/FuelStationDashboard";
 import UpdateVehicle from "../pages/user/UpdateVehicle";
@@ -34,7 +33,6 @@ export default function AppRoutes() {
         <Route path="quota" element={<QuotaManagement />} />
         <Route path="stations" element={<StationManagement />} />
         <Route path="supply" element={<StationSupply />} />
-        <Route path="analytics" element={<Analytics />} />
       </Route>
 
       <Route path="/fuelstation/login" element={<FuelStationLogin />} />

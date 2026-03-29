@@ -170,7 +170,7 @@ export default function AdminOverview() {
         </div>
 
         {/* Low Stock Warning - Full Width Below */}
-        <div className="bg-white/5 border border-white/10 p-8 rounded-3xl">
+        <div className="bg-white/5 border border-white/10 p-8 rounded-3xl mb-8">
           <h3 className="text-xl font-bold mb-6 flex items-center gap-2 text-red-400">
             🚨 Low Stock Warning
           </h3>
@@ -180,7 +180,7 @@ export default function AdminOverview() {
             ) : (
               <table className="w-full text-left">
                 <thead>
-                  <tr className="text-xs font-bold text-gray-400 uppercase tracking-wider border-b border-white/10">
+                  <tr className="text-xs font-bold text-gray-400 uppercase tracking-wider border-b border-white/10 bg-[#181F36] sticky top-0 z-10">
                     <th className="px-4 py-3">Station ID</th>
                     <th className="px-4 py-3">Station Name</th>
                     <th className="px-4 py-3">Location</th>
@@ -241,6 +241,31 @@ export default function AdminOverview() {
                 </tbody>
               </table>
             )}
+          </div>
+        </div>
+
+        {/* Top Fuel Consuming Stations (Last 7 Days) - Full Width Below Low Stock Warning */}
+        <div className="bg-white/5 border border-white/10 p-8 rounded-3xl overflow-hidden shadow-xl">
+          <h3 className="text-xl font-bold mb-6 flex items-center gap-2 text-emerald-400 font-mono tracking-tighter uppercase text-sm">
+            <BarChart size={20} /> Top Fuel Consuming Stations (Last 7 Days)
+          </h3>
+          <p className="text-xs text-gray-400 ml-2 mb-4">
+            This chart shows the stations where customers consumed the most fuel (in liters) over the past week.
+          </p>
+          <div className="h-96">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart layout="vertical" data={analytics.activeStations}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
+                <XAxis type="number" stroke="#9CA3AF" fontSize={10} />
+                <YAxis dataKey="name" type="category" stroke="#9CA3AF" width={100} fontSize={10} />
+                <Tooltip 
+                  contentStyle={{ backgroundColor: '#16213A', border: 'none', borderRadius: '12px' }}
+                  formatter={(value) => [`${value} L`, 'Total Fuel']} 
+                  itemStyle={{ color: '#10B981' }}
+                />
+                <Bar dataKey="total_fuel" fill="#10B981" radius={[0, 4, 4, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         </div>
       </div>
