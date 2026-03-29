@@ -39,6 +39,9 @@ router.patch("/stations/:stationId/status", updateStationStatus);
 router.put("/stations/:stationId", updateStationDetails);
 router.get("/stations/:stationId/history", getStationSupplyHistory);
 
+// Delete Station
+router.delete("/stations/:stationId", require("../controllers/adminController").deleteStation);
+
 // Analytics
 router.get("/analytics", getAnalytics);
 

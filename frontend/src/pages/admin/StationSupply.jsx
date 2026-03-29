@@ -73,13 +73,13 @@ export default function StationSupply() {
         <h2 className="text-3xl font-bold">Station Fuel Supply</h2>
         
         <div className="relative w-full md:w-80">
-          <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
+          <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-fuchsia-500" />
           <input 
             type="text" 
             placeholder="Search by ID or Name..." 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-white/5 border border-white/10 rounded-2xl pl-12 pr-4 py-3 focus:outline-none focus:border-fuchsia-500 transition shadow-inner"
+            className="w-full bg-white/5 border border-fuchsia-500 rounded-2xl pl-12 pr-4 py-3 focus:outline-none focus:border-fuchsia-500 transition shadow-inner"
           />
         </div>
       </div>

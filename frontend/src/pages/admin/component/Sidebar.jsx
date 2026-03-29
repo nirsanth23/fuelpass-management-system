@@ -12,7 +12,6 @@ const Sidebar = () => {
     { to: "/admin/dashboard/quota", label: "Quota Rules", icon: Settings },
     { to: "/admin/dashboard/stations", label: "Stations", icon: MapPin },
     { to: "/admin/dashboard/supply", label: "Station Supply", icon: Fuel },
-    // Analytics removed
   ];
 
   return (

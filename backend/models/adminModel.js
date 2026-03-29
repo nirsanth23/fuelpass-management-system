@@ -1,3 +1,12 @@
+const deleteStation = (stationId) => {
+  return new Promise((resolve, reject) => {
+    const query = 'DELETE FROM fuel_stations WHERE station_id = ?';
+    db.query(query, [stationId], (err, results) => {
+      if (err) return reject(err);
+      resolve(results);
+    });
+  });
+};
 const db = require('../config/db');
 
 const createNotification = (type, stationUsername, email, phoneNumber) => {
@@ -218,4 +227,5 @@ module.exports = {
   getAnalyticsData,
   recordSupplyHistory,
   getStationHistory
+  ,deleteStation
 };

@@ -72,6 +72,32 @@ export default function StationManagement() {
     } catch (err) { console.error("Toggle status failed", err); }
   };
 
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const handleDeleteStation = async () => {
+    if (!editingStation) return;
+    setDeleting(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/stations/${editingStation.station_id}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (response.ok) {
+        setToast({ type: 'success', title: 'Deleted', message: 'Station deleted successfully.' });
+        setShowEditModal(false);
+        setEditingStation(null);
+        fetchStations();
+      } else {
+        setToast({ type: 'error', title: 'Delete Failed', message: 'Failed to delete station.' });
+      }
+    } catch (err) {
+      setToast({ type: 'error', title: 'Delete Failed', message: 'Failed to delete station.' });
+      console.error("Delete failed", err);
+    }
+    setDeleting(false);
+    setShowDeleteModal(false);
+  };
+
   const generateNextStationId = () => {
     if (!stations || stations.length === 0) return 'ST001';
     const ids = stations
@@ -94,9 +120,9 @@ export default function StationManagement() {
             setFormData({ stationId: generateNextStationId(), name: '', location: '', password: '1234' });
             setShowAddModal(true);
           }}
-          className="flex items-center gap-2 text-gray-300 bg-transparent border border-fuchsia-500 hover:bg-fuchsia-600 hover:text-white px-4 py-2.5 rounded-xl font-bold transition cursor-pointer"
+          className="group flex items-center gap-2 text-gray-300 bg-transparent border border-fuchsia-500 hover:bg-fuchsia-600 hover:text-white px-4 py-2.5 rounded-xl font-bold transition cursor-pointer"
         >
-          <Plus size={18} /> Add Station
+          <Plus size={18} className="text-fuchsia-500 group-hover:text-white transition" /> Add Station
         </button>
       </div>
 
@@ -200,7 +226,51 @@ export default function StationManagement() {
                 <label className="block text-[10px] font-bold text-gray-500 mb-2 uppercase tracking-widest">Location</label>
                 <input required value={formData.location} onChange={e => setFormData({ ...formData, location: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-blue-500" />
               </div>
-              <button className="w-full bg-blue-500 hover:bg-blue-600 py-4 rounded-xl font-bold mt-4 shadow-lg shadow-blue-500/20 transition cursor-pointer">Update Station</button>
+              <div className="flex gap-4 mt-4">
+                <button
+                  type="submit"
+                  className="flex-1 bg-blue-500 hover:bg-blue-600 py-4 rounded-xl font-bold shadow-lg shadow-blue-500/20 transition cursor-pointer"
+                >
+                  Update Station
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteModal(true)}
+                  className="flex-1 bg-red-500 hover:bg-red-600 py-4 rounded-xl font-bold shadow-lg shadow-red-500/20 transition cursor-pointer"
+                >
+                  Delete Station
+                </button>
+                    {/* Delete Station Modal */}
+                    {showDeleteModal && editingStation && (
+                      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[120] p-4">
+                        <div className="bg-[#16213A] border border-white/10 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden">
+                          <div className="flex flex-col items-center p-8">
+                            <div className="flex items-center justify-center w-16 h-16 rounded-full bg-red-500/10 mb-4">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5-4h4a2 2 0 012 2v2H7V5a2 2 0 012-2zm5 6v10M9 9v10" /></svg>
+                            </div>
+                            <h3 className="text-2xl font-bold text-red-400 mb-2">Delete Station?</h3>
+                            <p className="text-gray-300 mb-6 text-center">Are you sure you want to delete the station <span className="text-fuchsia-400 font-bold">{editingStation.station_id}</span>? This action cannot be undone.</p>
+                            <div className="flex gap-4 w-full">
+                              <button
+                                onClick={() => setShowDeleteModal(false)}
+                                className="flex-1 bg-white/10 hover:bg-white/20 text-gray-300 py-3 rounded-xl font-bold transition cursor-pointer"
+                                disabled={deleting}
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                onClick={handleDeleteStation}
+                                className="flex-1 bg-red-500 hover:bg-red-600 py-3 rounded-xl font-bold shadow-lg shadow-red-500/20 transition cursor-pointer"
+                                disabled={deleting}
+                              >
+                                {deleting ? 'Deleting...' : 'Delete'}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+              </div>
             </form>
           </div>
         </div>

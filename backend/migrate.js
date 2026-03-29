@@ -203,20 +203,45 @@ async function migrate() {
         db.query('DELETE FROM fuel_stations', () => resolve());
       });
 
+      // 25 stations, matching the IDs and names from seed_stations.js
       const stations = [
-        ['ST001', 'IOC Pettah', 'Colombo 01', '1234', 'Active', 5000, 3000, '2026-03-10', 1200, 800],
-        ['ST002', 'CPC Borella', 'Colombo 08', '1234', 'Active', 4500, 2500, '2026-03-08', 1000, 500],
-        ['ST003', 'Lanka Fuel Mart', 'Bambalapitiya', '1234', 'Active', 3000, 2000, '2026-03-22', 600, 400],
-        ['ST004', 'Ceypetco Havelock', 'Havelock Town', '1234', 'Active', 4200, 2800, '2026-03-21', 700, 500],
-        ['ST005', 'IOC Kirulapone', 'Kirulapone', '1234', 'Active', 3500, 2200, '2026-03-20', 600, 500],
-        ['ST006', 'CPC Narahenpita', 'Narahenpita', '1234', 'Active', 4800, 3100, '2026-03-23', 900, 600],
-        ['ST007', 'Lanka Filling St', 'Rajagiriya', '1234', 'Active', 3900, 2400, '2026-03-19', 800, 500],
-        ['ST008', 'IOC Wellawatte', 'Wellawatte', '1234', 'Active', 4100, 2700, '2026-03-24', 800, 600],
-        ['ST009', 'CPC Slave Island', 'Slave Island', '1234', 'Active', 3700, 2100, '2026-03-18', 600, 400],
-        ['ST010', 'Lanka Fuel Maradana', 'Maradana', '1234', 'Active', 4400, 2900, '2026-03-25', 1000, 600]
+        ['ST001', 'Lanka IOC - Kollupitiya', 'Kollupitiya, Colombo 03'],
+        ['ST002', 'Ceypetco - Bambalapitiya', 'Bambalapitiya, Colombo 04'],
+        ['ST003', 'Lanka IOC - Borella', 'Borella, Colombo 08'],
+        ['ST004', 'Ceypetco - Maradana', 'Maradana, Colombo 10'],
+        ['ST005', 'Lanka IOC - Wellawatte', 'Wellawatte, Colombo 06'],
+        ['ST006', 'Ceypetco - Dehiwala', 'Dehiwala, Colombo'],
+        ['ST007', 'Lanka IOC - Nugegoda', 'Nugegoda, Colombo'],
+        ['ST008', 'Ceypetco - Rajagiriya', 'Rajagiriya, Colombo'],
+        ['ST009', 'Lanka IOC - Battaramulla', 'Battaramulla, Colombo'],
+        ['ST010', 'Ceypetco - Kottawa', 'Kottawa, Colombo'],
+        ['ST011', 'Lanka IOC - Maharagama', 'Maharagama, Colombo'],
+        ['ST012', 'Ceypetco - Piliyandala', 'Piliyandala, Colombo'],
+        ['ST013', 'Lanka IOC - Moratuwa', 'Moratuwa, Colombo'],
+        ['ST014', 'Ceypetco - Mount Lavinia', 'Mount Lavinia, Colombo'],
+        ['ST015', 'Lanka IOC - Kaduwela', 'Kaduwela, Colombo'],
+        ['ST016', 'Ceypetco - Malabe', 'Malabe, Colombo'],
+        ['ST017', 'Lanka IOC - Nawala', 'Nawala, Colombo'],
+        ['ST018', 'Ceypetco - Kiribathgoda', 'Kiribathgoda, Colombo'],
+        ['ST019', 'Lanka IOC - Kelaniya', 'Kelaniya, Colombo'],
+        ['ST020', 'Ceypetco - Kadawatha', 'Kadawatha, Colombo'],
+        ['ST021', 'Lanka IOC - Athurugiriya', 'Athurugiriya, Colombo'],
+        ['ST022', 'Ceypetco - Homagama', 'Homagama, Colombo'],
+        ['ST023', 'Lanka IOC - Pannipitiya', 'Pannipitiya, Colombo'],
+        ['ST024', 'Ceypetco - Pettah', 'Pettah, Colombo 11'],
+        ['ST025', 'Lanka IOC - Fort', 'Fort, Colombo 01']
       ];
-      
-      for (const [id, name, loc, pass, status, p_stock, d_stock, l_date, l_petrol, l_diesel] of stations) {
+
+      // Give each station some default values for the other columns
+      for (let i = 0; i < stations.length; i++) {
+        const [id, name, loc] = stations[i];
+        const pass = '12345';
+        const status = 'Active';
+        const p_stock = 3000 + (i * 50); // Just for variety
+        const d_stock = 2000 + (i * 40);
+        const l_date = `2026-03-2${(i % 9) + 1}`; // Dates 21-29
+        const l_petrol = 1000 + (i * 10);
+        const l_diesel = 800 + (i * 8);
         await new Promise((resolve) => {
           db.query(`INSERT INTO fuel_stations (station_id, name, location, password, status, petrol_stock, diesel_stock, last_supplied_date, last_supplied_petrol, last_supplied_diesel) 
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [id, name, loc, pass, status, p_stock, d_stock, l_date, l_petrol, l_diesel], () => resolve());
@@ -227,12 +252,15 @@ async function migrate() {
     console.log("10 Colombo fuel stations seeded.");
 
     const seedSupplyHistory = async () => {
-      const history = [
-        ['ST001', 1200, 800, '2026-03-10 10:30:00'],
-        ['ST001', 1000, 700, '2026-03-01 09:15:00'],
-        ['ST002', 1000, 500, '2026-03-08 14:20:00'],
-        ['ST003', 600, 400, '2026-03-22 11:00:00']
-      ];
+      // Generate supply history for all 25 stations, 3 records each
+      const history = [];
+      for (let i = 1; i <= 25; i++) {
+        const stationId = `ST${String(i).padStart(3, '0')}`;
+        // 3 supply records per station, spaced out in March 2026
+        history.push([stationId, 1000 + (i * 10), 800 + (i * 8), `2026-03-05 09:00:00`]);
+        history.push([stationId, 1200 + (i * 12), 900 + (i * 7), `2026-03-15 14:30:00`]);
+        history.push([stationId, 1100 + (i * 11), 850 + (i * 9), `2026-03-25 11:45:00`]);
+      }
       for (const [id, petrol, diesel, date] of history) {
         await new Promise((resolve) => {
           db.query('INSERT IGNORE INTO fuel_supply_history (station_id, petrol_amount, diesel_amount, supplied_at) VALUES (?, ?, ?, ?)', [id, petrol, diesel, date], () => resolve());
