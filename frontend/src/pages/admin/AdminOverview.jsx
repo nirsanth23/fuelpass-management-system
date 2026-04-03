@@ -77,13 +77,16 @@ export default function AdminOverview() {
     finally { setLoadingId(null); }
   };
 
-  const StatCard = ({ title, value, icon: Icon, color }) => (
-    <div className="bg-white/5 border border-white/10 p-6 rounded-2xl flex items-center justify-between">
+  const StatCard = ({ title, value, icon: Icon, color, unit = "" }) => (
+    <div className="bg-white/5 border border-white/10 p-6 rounded-2xl flex items-center justify-between group hover:bg-white/10 transition-all duration-300">
       <div>
-        <h3 className="text-gray-400 text-sm font-medium mb-1">{title}</h3>
-        <p className={`text-3xl font-bold ${color}`}>{value}</p>
+        <h3 className="text-gray-400 text-xs font-bold mb-1 uppercase tracking-widest">{title}</h3>
+        <p className={`text-3xl font-bold ${color} font-mono flex items-baseline gap-1`}>
+          {typeof value === 'number' ? value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : value}
+          {unit && <span className="text-[14px] font-medium opacity-60 ml-1 tracking-normal">{unit}</span>}
+        </p>
       </div>
-      <div className={`p-3 rounded-xl bg-white/5 ${color.replace('text-', 'bg-')}/10 ${color}`}>
+      <div className={`p-4 rounded-xl bg-white/5 ${color.replace('text-', 'bg-')}/10 ${color} shadow-lg shadow-black/20`}>
         <Icon size={24} />
       </div>
     </div>
@@ -171,10 +174,10 @@ export default function AdminOverview() {
 
       <div className="animate-in fade-in duration-500">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-          <StatCard title="Petrol Stock" value={`${stats.total_petrol_stock}L`} icon={Fuel} color="text-fuchsia-400" />
-          <StatCard title="Diesel Stock" value={`${stats.total_diesel_stock}L`} icon={Fuel} color="text-blue-400" />
+          <StatCard title="Petrol Stock" value={stats.total_petrol_stock} unit="L" icon={Fuel} color="text-fuchsia-400" />
+          <StatCard title="Diesel Stock" value={stats.total_diesel_stock} unit="L" icon={Fuel} color="text-blue-400" />
           <StatCard title="Active Stations" value={stats.active_stations} icon={MapPin} color="text-emerald-400" />
-          <StatCard title="Issued Today" value={`${stats.total_fuel_issued_today}L`} icon={Check} color="text-amber-400" />
+          <StatCard title="Issued Today" value={stats.total_fuel_issued_today} unit="L" icon={Check} color="text-amber-400" />
         </div>
 
         {/* Consumption Trend - Full Width */}
@@ -229,8 +232,8 @@ export default function AdminOverview() {
                         <td className="px-4 py-3 text-gray-300 font-mono text-sm">{station.station_id}</td>
                         <td className="px-4 py-3 font-semibold text-white">{station.station_name}</td>
                         <td className="px-4 py-3 text-gray-400 text-sm">{station.location || '—'}</td>
-                        <td className={`px-4 py-3 text-right font-mono text-sm ${station.petrol_stock < 1000 ? 'text-red-400' : 'text-fuchsia-300'}`}>{station.petrol_stock}L</td>
-                        <td className={`px-4 py-3 text-right font-mono text-sm ${station.diesel_stock < 1000 ? 'text-red-400' : 'text-blue-300'}`}>{station.diesel_stock}L</td>
+                        <td className={`px-4 py-3 text-right font-mono text-sm ${station.petrol_stock < 1000 ? 'text-red-400' : 'text-fuchsia-300'}`}>{station.petrol_stock}<span className="text-[10px] opacity-50 ml-0.5">L</span></td>
+                        <td className={`px-4 py-3 text-right font-mono text-sm ${station.diesel_stock < 1000 ? 'text-red-400' : 'text-blue-300'}`}>{station.diesel_stock}<span className="text-[10px] opacity-50 ml-0.5">L</span></td>
                         <td className="px-4 py-3 text-right">
                           {isCritical ? (
                             <span className="text-red-400 bg-red-400/10 px-3 py-1 rounded-lg text-xs font-bold inline-flex items-center gap-1">
@@ -253,8 +256,8 @@ export default function AdminOverview() {
                         <td className="px-4 py-3 text-gray-300 font-mono text-sm">{station.station_id}</td>
                         <td className="px-4 py-3 font-semibold text-white">{station.station_name}</td>
                         <td className="px-4 py-3 text-gray-400 text-sm">{station.location || '—'}</td>
-                        <td className={`px-4 py-3 text-right font-mono text-sm ${station.petrol_stock < 1000 ? 'text-red-400' : 'text-fuchsia-300'}`}>{station.petrol_stock}L</td>
-                        <td className={`px-4 py-3 text-right font-mono text-sm ${station.diesel_stock < 1000 ? 'text-red-400' : 'text-blue-300'}`}>{station.diesel_stock}L</td>
+                        <td className={`px-4 py-3 text-right font-mono text-sm ${station.petrol_stock < 1000 ? 'text-red-400' : 'text-fuchsia-300'}`}>{station.petrol_stock}<span className="text-[10px] opacity-50 ml-0.5">L</span></td>
+                        <td className={`px-4 py-3 text-right font-mono text-sm ${station.diesel_stock < 1000 ? 'text-red-400' : 'text-blue-300'}`}>{station.diesel_stock}<span className="text-[10px] opacity-50 ml-0.5">L</span></td>
                         <td className="px-4 py-3 text-right">
                           {isCritical ? (
                             <span className="text-red-400 bg-red-400/10 px-3 py-1 rounded-lg text-xs font-bold inline-flex items-center gap-1">

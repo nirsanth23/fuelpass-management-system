@@ -195,11 +195,11 @@ export default function UserDashboard() {
               <div className="space-y-6">
                 <div className="flex justify-between items-end mb-2">
                   <div>
-                    <p className="text-4xl font-bold text-white">{quota.remaining}L</p>
+                    <p className="text-4xl font-bold text-white flex items-baseline gap-1">{quota.remaining}<span className="text-xl font-medium opacity-60">L</span></p>
                     <p className="text-gray-400 text-sm">Remaining this week</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-xl font-semibold text-gray-300">{quota.totalQuota}L</p>
+                    <p className="text-xl font-semibold text-gray-300 flex items-baseline justify-end gap-1">{quota.totalQuota}<span className="text-sm font-medium opacity-50">L</span></p>
                     <p className="text-gray-400 text-sm">Total Allowance</p>
                   </div>
                 </div>
@@ -225,17 +225,17 @@ export default function UserDashboard() {
                 <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
                   <div className="flex items-center gap-2 text-cyan-400">
                     <div className="w-3 h-3 rounded-full bg-cyan-400 shadow-sm shadow-cyan-400/20"></div>
-                    Available: {reservedUntil ? Math.max(0, quota.remaining - 3) : quota.remaining}L
+                    Available: {reservedUntil ? Math.max(0, quota.remaining - 3) : quota.remaining}<span className="text-[10px] opacity-60 ml-0.5">L</span>
                   </div>
                   {reservedUntil && (
                     <div className="flex items-center gap-2 text-emerald-400">
                       <div className="w-3 h-3 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400/20"></div>
-                      Reserved: {Math.min(quota.remaining, 3)}L
+                      Reserved: {Math.min(quota.remaining, 3)}<span className="text-[10px] opacity-60 ml-0.5">L</span>
                     </div>
                   )}
                   <div className="flex items-center gap-2 text-gray-400">
                     <div className="w-3 h-3 rounded-full bg-gray-400"></div>
-                    Used: {quota.used}L
+                    Used: {quota.used}<span className="text-[10px] opacity-60 ml-0.5">L</span>
                   </div>
                 </div>
                 <div className="pt-4 border-t border-white/10 flex flex-col gap-4">

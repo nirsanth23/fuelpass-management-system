@@ -220,9 +220,21 @@ module.exports = {
       if (!station || station.password !== password) {
         return res.status(401).json({ message: "Invalid station credentials" });
       }
-      // You may want to generate a token for station login as well
-      return res.json({ message: "Station login successful", station });
+      
+      const token = jwt.sign(
+        { userId: station.station_id, stationId: station.station_id, role: 'station' },
+        process.env.JWT_SECRET,
+        { expiresIn: "7d" }
+      );
+
+      return res.json({ 
+        message: "Station login successful", 
+        token, 
+        stationId: station.station_id,
+        station 
+      });
     } catch (error) {
+      console.error("Station login error:", error);
       return res.status(500).json({ message: "Station login failed" });
     }
   },

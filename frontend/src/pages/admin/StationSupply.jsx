@@ -105,13 +105,13 @@ export default function StationSupply() {
                   <p className="font-semibold text-white">{s.name}</p>
                   <p className="text-xs text-gray-500 font-mono">{s.station_id}</p>
                 </td>
-                <td className="px-6 py-4 font-mono text-fuchsia-300 text-sm">{s.petrol_stock}L</td>
-                <td className="px-6 py-4 font-mono text-blue-300 text-sm">{s.diesel_stock}L</td>
+                <td className="px-6 py-4 font-mono text-fuchsia-300 text-sm">{s.petrol_stock}<span className="text-[10px] opacity-50 ml-0.5">L</span></td>
+                <td className="px-6 py-4 font-mono text-blue-300 text-sm">{s.diesel_stock}<span className="text-[10px] opacity-50 ml-0.5">L</span></td>
                 <td className="px-6 py-4 text-xs text-gray-400">
                   {s.last_supplied_date ? new Date(s.last_supplied_date).toLocaleDateString() : 'N/A'}
                 </td>
-                <td className="px-6 py-4 font-mono text-fuchsia-200/50 text-xs">{s.last_supplied_petrol || 0}L</td>
-                <td className="px-6 py-4 font-mono text-blue-200/50 text-xs">{s.last_supplied_diesel || 0}L</td>
+                <td className="px-6 py-4 font-mono text-fuchsia-200/50 text-xs">{s.last_supplied_petrol || 0}<span className="text-[8px] opacity-50 ml-0.5">L</span></td>
+                <td className="px-6 py-4 font-mono text-blue-200/50 text-xs">{s.last_supplied_diesel || 0}<span className="text-[8px] opacity-50 ml-0.5">L</span></td>
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-2">
                     <span className={`h-1.5 w-1.5 rounded-full ${s.status === 'Active' ? 'bg-emerald-500' : 'bg-red-500'}`}></span>
@@ -246,8 +246,8 @@ export default function StationSupply() {
                         <td className="px-4 py-3 text-xs text-gray-300 rounded-l-xl">
                           {new Date(h.supplied_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
                         </td>
-                        <td className="px-4 py-3 text-right font-mono text-fuchsia-300 text-sm">{h.petrol_amount}L</td>
-                        <td className="px-4 py-3 text-right font-mono text-blue-300 text-sm rounded-r-xl">{h.diesel_amount}L</td>
+                        <td className="px-4 py-3 text-right font-mono text-fuchsia-300 text-sm">{h.petrol_amount}<span className="text-[10px] opacity-50 ml-0.5">L</span></td>
+                        <td className="px-4 py-3 text-right font-mono text-blue-300 text-sm rounded-r-xl">{h.diesel_amount}<span className="text-[10px] opacity-50 ml-0.5">L</span></td>
                       </tr>
                     ))}
                   </tbody>
