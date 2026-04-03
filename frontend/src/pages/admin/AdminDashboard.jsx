@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { 
-  LogOut, Bell, Check, X, Fuel, Activity, 
-  Settings, MapPin, Plus, Edit, TrendingUp, PieChart as PieIcon, BarChart as BarIcon, Phone, Mail
+import {
+  LogOut, Bell, Check, X, Fuel, Activity,
+  Settings, MapPin, Plus, Edit, TrendingUp, PieChart as PieIcon, BarChart as BarIcon
 } from "lucide-react";
 export default function AdminDashboard() {
   // ...existing dashboard content code (cards, charts, tables, etc.)...
@@ -10,7 +10,7 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-[#0B1220] text-white flex">
-      
+
       {/* Main Content */}
       <div className="flex-1 p-10 overflow-y-auto">
         <div className="flex justify-between items-center mb-10">
@@ -55,25 +55,13 @@ export default function AdminDashboard() {
                       <p className="p-4 text-center text-gray-400 text-sm">Clear</p>
                     ) : (
                       notifications.map(n => (
-                        <div key={n.id} className="p-4 border-b border-white/5 hover:bg-white/5 transition flex flex-col gap-1">
-                          <div className="flex justify-between items-start">
-                            <p className="text-xs font-mono text-fuchsia-400 uppercase tracking-wider">{n.station_username}</p>
-                          </div>
-                          <p className="text-sm font-bold text-white mb-0.5">{n.station_name || 'Station Name'}</p>
-                          <div className="flex flex-col gap-1">
-                            <div className="flex items-center gap-2 text-xs text-gray-400">
-                              <Phone size={12} className="text-fuchsia-500/50" />
-                              <span>{n.phone_number}</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-xs text-gray-400">
-                              <Mail size={12} className="text-fuchsia-500/50" />
-                              <span>{n.email}</span>
-                            </div>
-                          </div>
-                          <button 
+                        <div key={n.id} className="p-4 border-b border-white/5 hover:bg-white/5 transition">
+                          <p className="text-sm font-bold">{n.station_username}</p>
+                          <p className="text-xs text-gray-400">{n.email}</p>
+                          <button
                             onClick={() => handleApprove(n)}
                             disabled={loadingId === n.id}
-                            className="mt-3 w-full py-2 bg-fuchsia-500 text-white rounded-xl text-xs font-bold transition hover:bg-fuchsia-600 disabled:opacity-50 shadow-lg shadow-fuchsia-500/10"
+                            className="mt-2 w-full py-1.5 bg-fuchsia-500 text-white rounded-lg text-xs font-bold transition hover:bg-fuchsia-600 disabled:opacity-50"
                           >
                             {loadingId === n.id ? "Sending..." : "Approve & Send"}
                           </button>
@@ -106,9 +94,9 @@ export default function AdminDashboard() {
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={analytics.dailyUsage}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
-                      <XAxis dataKey="date" stroke="#9CA3AF" fontSize={12} tickFormatter={(val) => new Date(val).toLocaleDateString([], {weekday: 'short'})} />
+                      <XAxis dataKey="date" stroke="#9CA3AF" fontSize={12} tickFormatter={(val) => new Date(val).toLocaleDateString([], { weekday: 'short' })} />
                       <YAxis stroke="#9CA3AF" fontSize={12} />
-                      <Tooltip 
+                      <Tooltip
                         contentStyle={{ backgroundColor: '#16213A', border: 'none', borderRadius: '12px' }}
                         itemStyle={{ color: '#F472B6' }}
                       />
@@ -165,23 +153,23 @@ export default function AdminDashboard() {
                   <tr key={rule.vehicle_type} className="hover:bg-white/5 transition">
                     <td className="px-6 py-4 font-bold text-fuchsia-300">{rule.vehicle_type}</td>
                     <td className="px-6 py-4">
-                      <input 
-                        type="number" 
+                      <input
+                        type="number"
                         defaultValue={rule.weekly_limit}
                         onChange={(e) => rule.weekly_limit = e.target.value}
                         className="bg-white/5 border border-white/10 rounded px-3 py-1.5 w-24 focus:outline-none focus:border-fuchsia-500 text-sm font-mono"
                       />
                     </td>
                     <td className="px-6 py-4">
-                      <input 
-                        type="number" 
+                      <input
+                        type="number"
                         defaultValue={rule.carry_forward_limit}
                         onChange={(e) => rule.carry_forward_limit = e.target.value}
                         className="bg-white/5 border border-white/10 rounded px-3 py-1.5 w-24 focus:outline-none focus:border-fuchsia-500 text-sm font-mono"
                       />
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <button 
+                      <button
                         onClick={() => updateQuota(rule)}
                         className="p-2.5 bg-emerald-500/10 text-emerald-400 rounded-xl hover:bg-emerald-500/20 transition cursor-pointer"
                       >
@@ -215,16 +203,15 @@ export default function AdminDashboard() {
                       <td className="px-6 py-4 font-bold text-fuchsia-100">{s.name || 'Set Name'}</td>
                       <td className="px-6 py-4 text-gray-300">{s.location || 'Set Location'}</td>
                       <td className="px-6 py-4">
-                        <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border ${
-                          s.status === 'Active' 
-                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' 
+                        <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border ${s.status === 'Active'
+                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
                             : 'bg-red-500/10 text-red-400 border-red-500/30'
-                        }`}>
+                          }`}>
                           {s.status}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-right flex justify-end gap-2 transition-opacity">
-                        <button 
+                        <button
                           onClick={() => {
                             setEditingStation(s);
                             setFormData({ name: s.name, location: s.location, password: s.password });
@@ -232,15 +219,14 @@ export default function AdminDashboard() {
                           }}
                           className="p-2 text-blue-400 hover:bg-blue-500/10 rounded-lg transition cursor-pointer"
                         >
-                          <Edit size={18}/>
+                          <Edit size={18} />
                         </button>
-                        <button 
+                        <button
                           onClick={() => toggleStationStatus(s.station_id, s.status)}
-                          className={`p-2 rounded-lg transition cursor-pointer ${
-                            s.status === 'Active' ? 'text-red-400 hover:bg-red-500/10' : 'text-emerald-400 hover:bg-emerald-500/10'
-                          }`}
+                          className={`p-2 rounded-lg transition cursor-pointer ${s.status === 'Active' ? 'text-red-400 hover:bg-red-500/10' : 'text-emerald-400 hover:bg-emerald-500/10'
+                            }`}
                         >
-                          {s.status === 'Active' ? <X size={18}/> : <Check size={18}/>}
+                          {s.status === 'Active' ? <X size={18} /> : <Check size={18} />}
                         </button>
                       </td>
                     </tr>
@@ -268,16 +254,16 @@ export default function AdminDashboard() {
                 {stations.map(s => (
                   <tr key={s.station_id} className="hover:bg-white/5 transition">
                     <td className="px-6 py-4">
-                        <p className="font-bold">{s.name}</p>
-                        <p className="text-xs text-gray-500">{s.station_id}</p>
+                      <p className="font-bold">{s.name}</p>
+                      <p className="text-xs text-gray-500">{s.station_id}</p>
                     </td>
                     <td className="px-6 py-4 font-mono">{s.petrol_stock}L</td>
                     <td className="px-6 py-4 font-mono">{s.diesel_stock}L</td>
                     <td className="px-6 py-4 text-sm text-gray-400">{s.last_supplied_date ? new Date(s.last_supplied_date).toLocaleDateString() : 'N/A'}</td>
                     <td className="px-6 py-4 font-mono">{s.last_supplied_amount}L</td>
                     <td className="px-6 py-4">
-                         <span className={`h-2 w-2 inline-block rounded-full mr-2 ${s.status === 'Active' ? 'bg-emerald-500' : 'bg-red-500'}`}></span>
-                         {s.status}
+                      <span className={`h-2 w-2 inline-block rounded-full mr-2 ${s.status === 'Active' ? 'bg-emerald-500' : 'bg-red-500'}`}></span>
+                      {s.status}
                     </td>
                   </tr>
                 ))}
@@ -295,24 +281,24 @@ export default function AdminDashboard() {
           <div className="bg-[#16213A] border border-white/10 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
             <div className="p-6 border-b border-white/10 flex justify-between items-center bg-white/5">
               <h3 className="text-xl font-bold text-fuchsia-400">Add New Station</h3>
-              <button onClick={() => setShowAddModal(false)} className="text-gray-500 hover:text-white transition cursor-pointer"><X size={20}/></button>
+              <button onClick={() => setShowAddModal(false)} className="text-gray-500 hover:text-white transition cursor-pointer"><X size={20} /></button>
             </div>
             <form onSubmit={handleAddStation} className="p-6 space-y-4">
               <div>
                 <label className="block text-[10px] font-bold text-gray-500 uppercase mb-2 tracking-widest">Station ID</label>
-                <input required value={formData.stationId} onChange={e => setFormData({...formData, stationId: e.target.value})} placeholder="e.g., ST011" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-fuchsia-500 transition"/>
+                <input required value={formData.stationId} onChange={e => setFormData({ ...formData, stationId: e.target.value })} placeholder="e.g., ST011" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-fuchsia-500 transition" />
               </div>
               <div>
                 <label className="block text-[10px] font-bold text-gray-500 uppercase mb-2 tracking-widest">Station Name</label>
-                <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} placeholder="e.g., Lanka Fuel" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-fuchsia-500 transition"/>
+                <input required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} placeholder="e.g., Lanka Fuel" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-fuchsia-500 transition" />
               </div>
               <div>
                 <label className="block text-[10px] font-bold text-gray-500 uppercase mb-2 tracking-widest">Location</label>
-                <input required value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} placeholder="e.g., Colombo 03" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-fuchsia-500 transition"/>
+                <input required value={formData.location} onChange={e => setFormData({ ...formData, location: e.target.value })} placeholder="e.g., Colombo 03" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-fuchsia-500 transition" />
               </div>
               <div>
                 <label className="block text-[10px] font-bold text-gray-500 uppercase mb-2 tracking-widest">Password</label>
-                <input type="password" required value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-fuchsia-500 transition"/>
+                <input type="password" required value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-fuchsia-500 transition" />
               </div>
               <button className="w-full bg-fuchsia-500 hover:bg-fuchsia-600 py-4 rounded-xl font-bold mt-4 shadow-lg shadow-fuchsia-500/20 transition cursor-pointer">Create Station</button>
             </form>
@@ -325,16 +311,16 @@ export default function AdminDashboard() {
           <div className="bg-[#16213A] border border-white/10 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
             <div className="p-6 border-b border-white/10 flex justify-between items-center bg-white/5">
               <h3 className="text-xl font-bold text-blue-400">Edit: {editingStation.station_id}</h3>
-              <button onClick={() => setShowEditModal(false)} className="text-gray-500 hover:text-white transition cursor-pointer"><X size={20}/></button>
+              <button onClick={() => setShowEditModal(false)} className="text-gray-500 hover:text-white transition cursor-pointer"><X size={20} /></button>
             </div>
             <form onSubmit={handleEditStation} className="p-6 space-y-4">
               <div>
                 <label className="block text-[10px] font-bold text-gray-500 uppercase mb-2 tracking-widest">Name</label>
-                <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-blue-500 transition"/>
+                <input required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-blue-500 transition" />
               </div>
               <div>
                 <label className="block text-[10px] font-bold text-gray-500 uppercase mb-2 tracking-widest">Location</label>
-                <input required value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-blue-500 transition"/>
+                <input required value={formData.location} onChange={e => setFormData({ ...formData, location: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-blue-500 transition" />
               </div>
               <button className="w-full bg-blue-500 hover:bg-blue-600 py-4 rounded-xl font-bold mt-4 shadow-lg shadow-blue-500/20 transition cursor-pointer">Update Station</button>
             </form>
@@ -344,8 +330,7 @@ export default function AdminDashboard() {
 
       {/* Toast */}
       {toast && (
-        <div className={`fixed bottom-8 right-8 max-w-sm p-4 rounded-2xl shadow-2xl border flex items-start gap-4 z-[120] animate-in slide-in-from-right-5 duration-300 ${
-            toast.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-red-500/10 border-red-500/30 text-red-400'
+        <div className={`fixed bottom-8 right-8 max-w-sm p-4 rounded-2xl shadow-2xl border flex items-start gap-4 z-[120] animate-in slide-in-from-right-5 duration-300 ${toast.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-red-500/10 border-red-500/30 text-red-400'
           }`}>
           <div className="mt-0.5">{toast.type === 'success' ? <Check size={24} /> : <X size={24} />}</div>
           <div className="flex-1">
