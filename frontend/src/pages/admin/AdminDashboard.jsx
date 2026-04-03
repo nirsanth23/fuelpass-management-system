@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { 
   LogOut, Bell, Check, X, Fuel, Activity, 
-  Settings, MapPin, Plus, Edit, TrendingUp, PieChart as PieIcon, BarChart as BarIcon
+  Settings, MapPin, Plus, Edit, TrendingUp, PieChart as PieIcon, BarChart as BarIcon, Phone, Mail
 } from "lucide-react";
 export default function AdminDashboard() {
   // ...existing dashboard content code (cards, charts, tables, etc.)...
@@ -55,13 +55,25 @@ export default function AdminDashboard() {
                       <p className="p-4 text-center text-gray-400 text-sm">Clear</p>
                     ) : (
                       notifications.map(n => (
-                        <div key={n.id} className="p-4 border-b border-white/5 hover:bg-white/5 transition">
-                          <p className="text-sm font-bold">{n.station_username}</p>
-                          <p className="text-xs text-gray-400">{n.email}</p>
+                        <div key={n.id} className="p-4 border-b border-white/5 hover:bg-white/5 transition flex flex-col gap-1">
+                          <div className="flex justify-between items-start">
+                            <p className="text-xs font-mono text-fuchsia-400 uppercase tracking-wider">{n.station_username}</p>
+                          </div>
+                          <p className="text-sm font-bold text-white mb-0.5">{n.station_name || 'Station Name'}</p>
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-2 text-xs text-gray-400">
+                              <Phone size={12} className="text-fuchsia-500/50" />
+                              <span>{n.phone_number}</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-xs text-gray-400">
+                              <Mail size={12} className="text-fuchsia-500/50" />
+                              <span>{n.email}</span>
+                            </div>
+                          </div>
                           <button 
                             onClick={() => handleApprove(n)}
                             disabled={loadingId === n.id}
-                            className="mt-2 w-full py-1.5 bg-fuchsia-500 text-white rounded-lg text-xs font-bold transition hover:bg-fuchsia-600 disabled:opacity-50"
+                            className="mt-3 w-full py-2 bg-fuchsia-500 text-white rounded-xl text-xs font-bold transition hover:bg-fuchsia-600 disabled:opacity-50 shadow-lg shadow-fuchsia-500/10"
                           >
                             {loadingId === n.id ? "Sending..." : "Approve & Send"}
                           </button>

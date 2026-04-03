@@ -25,9 +25,11 @@ const createNotification = (type, stationUsername, email, phoneNumber) => {
 const getPendingNotifications = () => {
   return new Promise((resolve, reject) => {
     const query = `
-      SELECT * FROM admin_notifications 
-      WHERE status = 'pending' 
-      ORDER BY created_at DESC
+      SELECT n.*, s.name as station_name 
+      FROM admin_notifications n
+      LEFT JOIN fuel_stations s ON n.station_username = s.station_id
+      WHERE n.status = 'pending' 
+      ORDER BY n.created_at DESC
     `;
     db.query(query, (err, results) => {
       if (err) return reject(err);
@@ -35,6 +37,7 @@ const getPendingNotifications = () => {
     });
   });
 };
+
 
 const markNotificationResolved = (id) => {
   return new Promise((resolve, reject) => {
