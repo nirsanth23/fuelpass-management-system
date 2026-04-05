@@ -39,3 +39,13 @@ body {
   scrollbar-width: thin;
   scrollbar-color: #232b3b #181f2a;
 }
+
+/* Keep native select dropdown readable in dark dashboard theme */
+.fsd-select {
+  color-scheme: dark;
+}
+
+.fsd-select option {
+  background-color: #16213a;
+  color: #e5e7eb;
+}

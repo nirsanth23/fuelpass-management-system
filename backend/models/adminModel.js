@@ -22,13 +22,12 @@ const createNotification = (type, stationUsername, email, phoneNumber) => {
   });
 };
 
-const getPendingNotifications = () => {
+const getAllNotifications = () => {
   return new Promise((resolve, reject) => {
     const query = `
       SELECT n.*, s.name as station_name 
       FROM admin_notifications n
       LEFT JOIN fuel_stations s ON n.station_username = s.station_id
-      WHERE n.status = 'pending' 
       ORDER BY n.created_at DESC
     `;
     db.query(query, (err, results) => {
@@ -41,7 +40,17 @@ const getPendingNotifications = () => {
 
 const markNotificationResolved = (id) => {
   return new Promise((resolve, reject) => {
-    const query = `UPDATE admin_notifications SET status = 'resolved' WHERE id = ?`;
+    const query = `UPDATE admin_notifications SET status = 'resolved', resolved_at = CURRENT_TIMESTAMP WHERE id = ?`;
+    db.query(query, [id], (err, results) => {
+      if (err) return reject(err);
+      resolve(results);
+    });
+  });
+};
+
+const markNotificationRejected = (id) => {
+  return new Promise((resolve, reject) => {
+    const query = `UPDATE admin_notifications SET status = 'rejected', resolved_at = CURRENT_TIMESTAMP WHERE id = ?`;
     db.query(query, [id], (err, results) => {
       if (err) return reject(err);
       resolve(results);
@@ -216,8 +225,9 @@ const deleteQuotaRule = (vehicleType) => {
 
 module.exports = {
   createNotification,
-  getPendingNotifications,
+  getAllNotifications,
   markNotificationResolved,
+  markNotificationRejected,
   getNotificationById,
   getDashboardStats,
   getQuotaRules,

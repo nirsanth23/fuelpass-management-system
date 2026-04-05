@@ -3,6 +3,7 @@ const {
   submitForgotPassword, 
   getNotifications, 
   approvePasswordReset,
+  rejectPasswordReset,
   getDashboardSummary,
   getQuotaRules,
   updateQuotaRules,
@@ -22,6 +23,7 @@ const router = express.Router();
 router.post("/notifications/forgot-password", submitForgotPassword);
 router.get("/notifications", getNotifications);
 router.post("/send-station-password", approvePasswordReset);
+router.post("/reject-station-password", rejectPasswordReset);
 
 // Dashboard Stats
 router.get("/stats", getDashboardSummary);
