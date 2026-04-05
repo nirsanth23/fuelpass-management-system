@@ -20,8 +20,8 @@ const Sidebar = () => {
         <div className="p-2 bg-fuchsia-500 rounded-lg">
           <Fuel size={24} className="text-white" />
         </div>
-        <span className="text-xl font-bold bg-gradient-to-r from-fuchsia-400 to-purple-500 bg-clip-text text-transparent">
-          FuelPass Admin
+        <span className="text-xl font-bold bg-gradient-to-r from-fuchsia-400 to-purple-500 bg-clip-text text-transparent italic">
+          FUELPASS ADMIN
         </span>
       </div>
 

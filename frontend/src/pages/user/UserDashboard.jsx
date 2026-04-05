@@ -111,8 +111,8 @@ export default function UserDashboard() {
       <div className="max-w-5xl mx-auto w-full flex-1 flex flex-col">
         <div className="flex flex-col xl:flex-row xl:items-center justify-between mb-8 gap-4">
           <h1 className="text-3xl font-extrabold whitespace-nowrap">
-            <span className="bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-600 bg-clip-text text-transparent">
-              FuelPass Dashboard
+            <span className="bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-600 bg-clip-text text-transparent italic">
+              FUELPASS DASHBOARD
             </span>
           </h1>
 
@@ -170,7 +170,7 @@ export default function UserDashboard() {
                 localStorage.removeItem("fuelpass_user");
                 navigate("/user/login", { replace: true });
               }}
-              className="flex items-center gap-2 bg-white/5 hover:bg-red-500/10 text-gray-500 hover:text-red-400 transition px-4 py-2.5 rounded-xl cursor-pointer border border-white/10 text-sm font-bold"
+              className="flex items-center gap-2 bg-white/5 hover:bg-red-500/10 text-gray-400 hover:text-red-400 transition px-4 py-2.5 rounded-xl cursor-pointer border border-white/10 text-sm font-bold"
             >
               <LogOut size={18} /> Logout
             </button>

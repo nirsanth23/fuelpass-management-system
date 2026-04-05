@@ -13,7 +13,8 @@ export default function FuelStationDashboard() {
       diesel_issued_today: 0,
       customers_today: 0
     },
-    transactions: []
+    transactions: [],
+    supplies: []
   });
   const [loading, setLoading] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
@@ -25,6 +26,11 @@ export default function FuelStationDashboard() {
     email: ""
   });
   const [feedback, setFeedback] = useState({ type: "", message: "" });
+
+  const [showAddSupply, setShowAddSupply] = useState(false);
+  const [supplyData, setSupplyData] = useState({ petrolAmount: '', dieselAmount: '', referenceNo: '', suppliedAt: '' });
+  const [supplyFeedback, setSupplyFeedback] = useState({ type: "", message: "" });
+  const [isSubmittingSupply, setIsSubmittingSupply] = useState(false);
 
   const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "http://localhost:8081").replace(/\/$/, "");
   const stationId = localStorage.getItem("stationId");
@@ -94,10 +100,55 @@ export default function FuelStationDashboard() {
     }
   };
 
+  const handleAddSupply = async (e) => {
+    e.preventDefault();
+    setIsSubmittingSupply(true);
+    setSupplyFeedback({ type: "", message: "" });
+
+    const petrolAmount = parseFloat(supplyData.petrolAmount) || 0;
+    const dieselAmount = parseFloat(supplyData.dieselAmount) || 0;
+
+    if (petrolAmount === 0 && dieselAmount === 0) {
+      setSupplyFeedback({ type: "error", message: "Enter at least one fuel constraint." });
+      setIsSubmittingSupply(false);
+      return;
+    }
+
+    const suppliedAt = supplyData.suppliedAt.replace('T', ' ') + ':00';
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/station/supplies`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ petrolAmount, dieselAmount, referenceNo: supplyData.referenceNo, suppliedAt })
+      });
+      if (response.ok) {
+        setSupplyFeedback({ type: "success", message: "Update recorded!" });
+        fetchDashboardData(selectedDate);
+        setTimeout(() => {
+          setShowAddSupply(false);
+          setSupplyData({ petrolAmount: '', dieselAmount: '', referenceNo: '', suppliedAt: '' });
+          setSupplyFeedback({ type: "", message: "" });
+        }, 2000);
+      } else {
+        const err = await response.json();
+        setSupplyFeedback({ type: "error", message: err.message || "Action failed." });
+      }
+    } catch (error) {
+      setSupplyFeedback({ type: "error", message: "Network error. Try again." });
+    } finally {
+      setIsSubmittingSupply(false);
+    }
+  };
+
   const [searchTerm, setSearchTerm] = useState("");
   const [fuelTypeFilter, setFuelTypeFilter] = useState("All");
   const [vehicleTypeFilter, setVehicleTypeFilter] = useState("All");
   const [showFilters, setShowFilters] = useState(false);
+  const [visibleTxCount, setVisibleTxCount] = useState(10);
 
   useEffect(() => {
     if (!token) {
@@ -144,36 +195,31 @@ export default function FuelStationDashboard() {
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
           <div>
             <div className="flex items-center gap-3 mb-2">
-              <h1 className="text-3xl font-black tracking-tighter">
-                <span className="bg-gradient-to-r from-orange-400 via-amber-500 to-red-600 bg-clip-text text-transparent italic">
-                  FUELPASS
-                </span>
-                <span className="ml-2 text-white/90">STATION</span>
+              <h1 className="text-3xl font-black bg-gradient-to-r from-orange-400 via-amber-500 to-red-600 bg-clip-text text-transparent italic">
+                  FUELPASS STATION
+        
               </h1>
-              <span className="bg-orange-500/10 text-orange-400 text-[10px] font-black px-3 py-1 rounded-full border border-orange-500/20 uppercase tracking-widest">
-                Partner Dashboard
-              </span>
             </div>
             <p className="text-gray-400 text-sm font-medium flex items-center gap-2">
-              Welcome back, <span className="text-white bg-white/5 px-2 py-0.5 rounded font-mono">{stationId}</span>
+              Welcome back, <span className="text-white bg-white/5 px-2 py-0.5 rounded">{stationId}</span>
             </p>
           </div>
           <div className="flex items-center gap-3">
             <button 
               onClick={() => setShowSettings(true)}
-              className="flex items-center gap-2 bg-white/5 hover:bg-white/10 transition-all py-2.5 px-6 rounded-2xl cursor-pointer text-gray-400 hover:text-white border border-white/10 font-bold text-sm shadow-xl hover:shadow-orange-500/5 group"
+              className="flex items-center gap-2 bg-white/5 hover:bg-white/10 transition-all py-2.5 px-6 rounded-xl cursor-pointer text-gray-400 hover:text-white border border-white/10 font-bold text-sm shadow-xl hover:shadow-orange-500/5 group"
             >
               <Settings size={18} className="group-hover:rotate-90 transition-transform duration-500" /> Settings
             </button>
-            <button 
+              <button
               onClick={() => {
                 localStorage.removeItem("stationToken");
                 localStorage.removeItem("stationId");
                 navigate("/fuelstation/login", { replace: true });
               }}
-              className="flex items-center gap-2 bg-red-500/10 hover:bg-red-500/20 transition-all py-2.5 px-6 rounded-2xl cursor-pointer text-red-400 border border-red-500/20 font-bold text-sm shadow-xl shadow-red-500/5 group"
+              className="flex items-center gap-2 bg-white/5 hover:bg-red-500/10 text-gray-400 hover:text-red-400 transition px-4 py-2.5 rounded-xl cursor-pointer border border-white/10 text-sm font-bold"
             >
-              <LogOut size={18} className="group-hover:-translate-x-1 transition-transform" /> Logout
+              <LogOut size={18} /> Logout
             </button>
           </div>
         </div>
@@ -225,7 +271,7 @@ export default function FuelStationDashboard() {
 
               {/* Vehicle Number Search */}
               <div className="relative w-full sm:w-64">
-                <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
+                <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-orange-400" />
                 <input 
                   type="text" 
                   placeholder="Search Vehicle ID..." 
@@ -274,8 +320,7 @@ export default function FuelStationDashboard() {
                             <select 
                               value={vehicleTypeFilter}
                               onChange={(e) => setVehicleTypeFilter(e.target.value)}
-                              className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-xs font-bold text-gray-300 focus:outline-none focus:border-orange-500/50 appearance-none cursor-pointer"
-                            >
+                              className="fsd-select w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-xs font-bold text-gray-300 focus:outline-none focus:border-orange-500/50 appearance-none cursor-pointer [color-scheme:dark]"                            >
                               <option value="All">All Categories</option>
                               <option value="Bike">Bike</option>
                               <option value="Car">Car</option>
@@ -315,7 +360,15 @@ export default function FuelStationDashboard() {
             </div>
           </div>
 
-          <div className="overflow-x-auto max-h-[850px] overflow-y-auto low-stock-scrollbar">
+          <div 
+            className="overflow-x-auto max-h-[850px] overflow-y-auto low-stock-scrollbar"
+            onScroll={(e) => {
+              const { scrollTop, scrollHeight, clientHeight } = e.target;
+              if (scrollHeight - scrollTop <= clientHeight + 50) {
+                setVisibleTxCount(prev => prev + 10);
+              }
+            }}
+          >
             <table className="w-full text-left">
               <thead className="sticky top-0 z-10">
                 <tr className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] bg-[#16213A] border-b border-white/10">
@@ -354,6 +407,7 @@ export default function FuelStationDashboard() {
                       (vehicleTypeFilter === "All" || t.vehicle_type?.toLowerCase() === vehicleTypeFilter.toLowerCase()) &&
                       (t.vehicle_number?.toLowerCase().includes(searchTerm.toLowerCase()))
                     )
+                    .slice(0, visibleTxCount)
                     .map((t, i) => (
                       <tr key={i} className="hover:bg-white/[0.03] transition-colors group">
                         <td className="px-8 py-5 text-xs text-gray-400 font-mono">
@@ -400,6 +454,89 @@ export default function FuelStationDashboard() {
           <div className="p-8 bg-white/[0.02] border-t border-white/10 flex justify-between items-center text-[10px] font-bold text-gray-500 uppercase tracking-widest">
             <p>Displaying {data.transactions.length} records</p>
             <p>Real-time data sync active</p>
+          </div>
+        </div>
+
+        {/* Fuel Updates Table Section */}
+        <div className="bg-white/5 border border-white/10 rounded-[2.5rem] overflow-hidden shadow-2xl backdrop-blur-sm mt-12 mb-12">
+          <div className="p-8 border-b border-white/10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 bg-white/[0.02]">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-orange-500/10 rounded-2xl text-orange-400">
+                <Fuel size={24} />
+              </div>
+              <div>
+                <h3 className="text-2xl font-bold">Fuel Updates</h3>
+                <p className="text-gray-400 text-sm font-medium">Log of fuel supplies received at this station</p>
+              </div>
+            </div>
+            
+            <button
+              onClick={() => {
+                const now = new Date();
+                now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+                const formattedDate = now.toISOString().slice(0,16);
+                const ref = 'SUP-' + Math.floor(Math.random() * 1000000).toString().padStart(6, '0');
+                setSupplyData({ petrolAmount: '', dieselAmount: '', referenceNo: ref, suppliedAt: formattedDate });
+                setShowAddSupply(true);
+              }}
+              className="flex items-center gap-2 bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white transition py-2.5 px-6 rounded-xl cursor-pointer font-bold text-sm shadow-xl hover:shadow-orange-500/20 w-full md:w-auto justify-center"
+            >
+              + New Update
+            </button>
+          </div>
+
+          <div className="overflow-x-auto max-h-[500px] overflow-y-auto low-stock-scrollbar">
+            <table className="w-full text-left">
+              <thead className="sticky top-0 z-10">
+                <tr className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] bg-[#16213A] border-b border-white/10">
+                  <th className="px-8 py-5">Reference No</th>
+                  <th className="px-8 py-5">Date & Time</th>
+                  <th className="px-8 py-5">Petrol Amount</th>
+                  <th className="px-8 py-5">Diesel Amount</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/[0.05]">
+                {data.supplies.length === 0 ? (
+                  <tr>
+                    <td colSpan="4" className="px-8 py-20 text-center">
+                      <div className="flex flex-col items-center gap-3 opacity-30">
+                        <Fuel size={48} />
+                        <p className="text-lg font-medium italic">
+                          No fuel updates found
+                        </p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  data.supplies.map((s, i) => (
+                    <tr key={i} className="hover:bg-white/[0.03] transition-colors group">
+                      <td className="px-8 py-5 text-xs text-gray-400 font-mono">
+                        <span className="font-black text-white uppercase tracking-wider bg-white/5 px-3 py-1.5 rounded-xl border border-white/10 group-hover:border-orange-500/30 transition-colors">
+                          {s.reference_no || `SUP-${String(s.id).padStart(4, '0')}`}
+                        </span>
+                      </td>
+                      <td className="px-8 py-5 text-sm font-bold text-gray-300">
+                        {s.date}
+                      </td>
+                      <td className="px-8 py-5">
+                        <p className="text-lg font-black text-fuchsia-400 font-mono tracking-tighter">
+                          {s.petrol_amount}<span className="text-[10px] ml-1 opacity-50 uppercase tracking-normal">Liters</span>
+                        </p>
+                      </td>
+                      <td className="px-8 py-5">
+                        <p className="text-lg font-black text-blue-400 font-mono tracking-tighter">
+                          {s.diesel_amount}<span className="text-[10px] ml-1 opacity-50 uppercase tracking-normal">Liters</span>
+                        </p>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+          
+          <div className="p-8 bg-white/[0.02] border-t border-white/10 flex justify-between items-center text-[10px] font-bold text-gray-500 uppercase tracking-widest">
+            <p>Displaying {data.supplies.length} supply records</p>
           </div>
         </div>
       </div>
@@ -523,6 +660,116 @@ export default function FuelStationDashboard() {
                   className="flex-[2] py-4 rounded-2xl bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white font-black text-xs uppercase tracking-widest shadow-xl shadow-orange-500/20 transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {isSaving ? "Updating..." : "Save Changes"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* New Update Modal */}
+      {showAddSupply && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => !isSubmittingSupply && setShowAddSupply(false)} />
+          <div className="bg-[#0B1220] border border-white/10 w-full max-w-md rounded-[2.5rem] shadow-2xl relative animate-in zoom-in-95 duration-300 overflow-hidden">
+            <div className="p-8 border-b border-white/10 flex items-center bg-white/[0.02]">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-orange-500/10 rounded-2xl text-orange-400">
+                  <Fuel size={22} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold">New Fuel Supply</h3>
+                  <p className="text-gray-400 text-xs font-medium uppercase tracking-widest mt-0.5">Register new fuel intake</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowAddSupply(false)} 
+                className="absolute top-8 right-8 text-gray-500 hover:text-white transition-colors cursor-pointer p-2 hover:bg-white/5 rounded-xl block"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddSupply} className="p-8 space-y-6">
+              <div>
+                <label className="block text-[10px] font-black text-gray-500 mb-2 uppercase tracking-widest">Reference No</label>
+                <div className="relative">
+                  <input 
+                    type="text" 
+                    value={supplyData.referenceNo}
+                    disabled
+                    className="w-full bg-white/[0.02] border border-white/5 rounded-2xl px-4 py-3 text-sm font-mono text-gray-500 cursor-not-allowed uppercase tracking-wider"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black text-gray-500 mb-2 uppercase tracking-widest">Date & Time</label>
+                <div className="relative">
+                  <Calendar size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-orange-400" />
+                  <input 
+                    type="datetime-local" 
+                    value={supplyData.suppliedAt}
+                    onChange={(e) => setSupplyData({...supplyData, suppliedAt: e.target.value})}
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl pl-12 pr-4 py-3 text-sm font-bold focus:outline-none focus:border-orange-500/50 transition-all shadow-inner [color-scheme:dark] cursor-pointer"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black text-gray-500 mb-2 uppercase tracking-widest">Petrol Amount (L)</label>
+                <div className="relative">
+                  <Fuel size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-fuchsia-400" />
+                  <input 
+                    type="number" 
+                    min="0"
+                    step="0.01"
+                    value={supplyData.petrolAmount}
+                    onChange={(e) => setSupplyData({...supplyData, petrolAmount: e.target.value})}
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl pl-12 pr-4 py-3 text-sm font-bold focus:outline-none focus:border-orange-500/50 transition-all shadow-inner"
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-[10px] font-black text-gray-500 mb-2 uppercase tracking-widest">Diesel Amount (L)</label>
+                <div className="relative">
+                  <Fuel size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-blue-400" />
+                  <input 
+                    type="number" 
+                    min="0"
+                    step="0.01"
+                    value={supplyData.dieselAmount}
+                    onChange={(e) => setSupplyData({...supplyData, dieselAmount: e.target.value})}
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl pl-12 pr-4 py-3 text-sm font-bold focus:outline-none focus:border-orange-500/50 transition-all shadow-inner"
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+
+              {supplyFeedback.message && (
+                <div className={`p-4 rounded-2xl border flex items-center gap-3 animate-in fade-in slide-in-from-top-4 ${supplyFeedback.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}>
+                  {supplyFeedback.type === 'success' ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
+                  <p className="text-xs font-bold">{supplyFeedback.message}</p>
+                </div>
+              )}
+
+              <div className="flex gap-4 pt-4">
+                <button 
+                  type="button"
+                  onClick={() => setShowAddSupply(false)}
+                  disabled={isSubmittingSupply}
+                  className="flex-1 py-4 rounded-2xl bg-white/5 hover:bg-white/10 text-gray-400 font-bold text-xs uppercase tracking-widest transition-all cursor-pointer disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit"
+                  disabled={isSubmittingSupply}
+                  className="flex-[2] py-4 rounded-2xl bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white font-black text-xs uppercase tracking-widest shadow-xl shadow-orange-500/20 transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {isSubmittingSupply ? "Recording..." : "Add Supply"}
                 </button>
               </div>
             </form>

@@ -64,6 +64,49 @@ const getStationTransactions = (stationId, date) => {
   });
 };
 
+const getStationSupplies = (stationId) => {
+  return new Promise((resolve, reject) => {
+    const query = `
+      SELECT 
+        id,
+        reference_no,
+        petrol_amount,
+        diesel_amount,
+        DATE_FORMAT(supplied_at, '%Y-%m-%d %H:%i') as date
+      FROM fuel_supply_history
+      WHERE station_id = ?
+      ORDER BY supplied_at DESC
+    `;
+    db.query(query, [stationId], (err, results) => {
+      if (err) return reject(err);
+      resolve(results);
+    });
+  });
+};
+
+const addStationSupply = (stationId, petrol, diesel, referenceNo, suppliedAt) => {
+  return new Promise((resolve, reject) => {
+    db.beginTransaction(err => {
+      if (err) return reject(err);
+
+      const q1 = 'INSERT INTO fuel_supply_history (station_id, reference_no, petrol_amount, diesel_amount, supplied_at) VALUES (?, ?, ?, ?, ?)';
+      db.query(q1, [stationId, referenceNo, petrol, diesel, suppliedAt], (err1, results) => {
+        if (err1) return db.rollback(() => reject(err1));
+
+        const q2 = 'UPDATE fuel_stations SET petrol_stock = petrol_stock + ?, diesel_stock = diesel_stock + ? WHERE station_id = ?';
+        db.query(q2, [petrol, diesel, stationId], (err2, _) => {
+          if (err2) return db.rollback(() => reject(err2));
+
+          db.commit(err3 => {
+            if (err3) return db.rollback(() => reject(err3));
+            resolve(results);
+          });
+        });
+      });
+    });
+  });
+};
+
 const getStationProfile = (stationId) => {
   return new Promise((resolve, reject) => {
     const query = 'SELECT station_id, name, location, phone_number, email FROM fuel_stations WHERE station_id = ?';
@@ -90,6 +133,8 @@ module.exports = {
   updateStationPassword,
   getStationDashboardStats,
   getStationTransactions,
+  getStationSupplies,
+  addStationSupply,
   getStationProfile,
   updateStationProfile
 };
