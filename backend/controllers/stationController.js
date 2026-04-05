@@ -11,10 +11,12 @@ const getDashboardData = async (req, res) => {
   try {
     const stats = await stationModel.getStationDashboardStats(stationId);
     const transactions = await stationModel.getStationTransactions(stationId, date);
+    const supplies = await stationModel.getStationSupplies(stationId);
 
     return res.json({
       stats,
-      transactions
+      transactions,
+      supplies
     });
   } catch (error) {
     console.error("getDashboardData error:", error);
@@ -53,8 +55,26 @@ const updateProfile = async (req, res) => {
   }
 };
 
+const addSupply = async (req, res) => {
+  const stationId = req.user.stationId;
+  const { petrolAmount, dieselAmount, referenceNo, suppliedAt } = req.body;
+
+  if (petrolAmount === undefined || dieselAmount === undefined) {
+    return res.status(400).json({ message: "Petrol and diesel amounts are required" });
+  }
+
+  try {
+    await stationModel.addStationSupply(stationId, petrolAmount, dieselAmount, referenceNo, suppliedAt);
+    return res.json({ message: "Fuel supply logged and stock updated successfully" });
+  } catch (error) {
+    console.error("addSupply error:", error);
+    return res.status(500).json({ message: "Failed to add supply" });
+  }
+};
+
 module.exports = {
   getDashboardData,
   getProfile,
-  updateProfile
+  updateProfile,
+  addSupply
 };

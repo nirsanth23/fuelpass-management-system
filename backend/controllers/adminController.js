@@ -29,7 +29,7 @@ const submitForgotPassword = async (req, res) => {
 
 const getNotifications = async (req, res) => {
   try {
-    const notifications = await adminModel.getPendingNotifications();
+    const notifications = await adminModel.getAllNotifications();
     return res.json({ notifications });
   } catch (error) {
     console.error("getNotifications Error:", error);
@@ -68,6 +68,27 @@ const approvePasswordReset = async (req, res) => {
       return res.status(500).json({ message: "Admin Email Authentication Failed. Please check .env." });
     }
     return res.status(500).json({ message: "Failed to approve request." });
+  }
+};
+
+const rejectPasswordReset = async (req, res) => {
+  const { id } = req.body;
+
+  if (!id) {
+    return res.status(400).json({ message: "Notification ID is required." });
+  }
+
+  try {
+    const notification = await adminModel.getNotificationById(id);
+    if (!notification) {
+      return res.status(404).json({ message: "Notification not found." });
+    }
+    
+    await adminModel.markNotificationRejected(id);
+    return res.json({ message: "Notification rejected successfully." });
+  } catch (error) {
+    console.error("rejectPasswordReset Error:", error);
+    return res.status(500).json({ message: "Failed to reject request." });
   }
 };
 
@@ -203,6 +224,7 @@ module.exports = {
   submitForgotPassword,
   getNotifications,
   approvePasswordReset,
+  rejectPasswordReset,
   getDashboardSummary,
   getQuotaRules,
   updateQuotaRules,
