@@ -220,22 +220,6 @@ export default function FuelStationLogin() {
 
               <div>
                 <label className="block mb-2 text-sm text-gray-300">
-                  Station Name
-                </label>
-                <input
-                  type="text"
-                  value={username} // Reusing username state for station name in forgot form
-                  onChange={(e) => {
-                    setUsername(e.target.value);
-                    setErrorMsg("");
-                    setSuccessMsg("");
-                  }}
-                  className="w-full p-3 rounded-lg bg-white/10 border border-white/20 focus:outline-none focus:ring-2 focus:ring-orange-400"
-                />
-              </div>
-
-              <div>
-                <label className="block mb-2 text-sm text-gray-300">
                   Registered Email
                 </label>
                 <input

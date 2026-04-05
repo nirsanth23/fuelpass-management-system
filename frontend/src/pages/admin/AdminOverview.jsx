@@ -1,18 +1,35 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { generateMonthlyReportPDF } from "./MonthlyReportGenerator";
-import { 
-  Fuel, Activity, TrendingUp, PieChart as PieIcon, Check, MapPin, Bell, X, Phone, Mail 
+import {
+  Fuel, Activity, TrendingUp, PieChart as PieIcon, Check, MapPin, Bell, X, Phone, Mail
 } from "lucide-react";
-import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, 
-  PieChart, Pie, Cell 
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  PieChart, Pie, Cell
 } from 'recharts';
 
 export default function AdminOverview() {
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [notificationTab, setNotificationTab] = useState('pending');
   const [loadingId, setLoadingId] = useState(null);
   const [toast, setToast] = useState(null);
+  const toastTimerRef = useRef(null);
+
+  const formatDateTime = (dateString) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const year = date.getFullYear();
+    let hours = date.getHours();
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12;
+    hours = hours ? hours : 12;
+    const strHours = hours.toString().padStart(2, '0');
+    return `${day}/${month}/${year} ${strHours}:${minutes} ${ampm}`;
+  };
 
   const [stats, setStats] = useState({
     total_petrol_stock: 0,
@@ -56,7 +73,12 @@ export default function AdminOverview() {
   useEffect(() => {
     fetchData();
     const interval = setInterval(fetchData, 10000);
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      if (toastTimerRef.current) {
+        clearTimeout(toastTimerRef.current);
+      }
+    };
   }, []);
 
   const handleApprove = async (notification) => {
@@ -67,23 +89,55 @@ export default function AdminOverview() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: notification.id, email: notification.email }),
       });
-      const data = await response.json();
       if (response.ok) {
-        setToast({ type: 'success', title: 'Password Reset', message: `Password sent: ${data.newPassword}` });
+        setToast({ type: 'success', title: 'Password Reset' });
         setShowNotifications(false);
         fetchData();
+        if (toastTimerRef.current) {
+          clearTimeout(toastTimerRef.current);
+        }
+        toastTimerRef.current = setTimeout(() => {
+          setToast(null);
+          toastTimerRef.current = null;
+        }, 10000);
       }
     } catch (err) { console.error("Approve failed", err); }
     finally { setLoadingId(null); }
   };
 
-  const StatCard = ({ title, value, icon: Icon, color }) => (
-    <div className="bg-white/5 border border-white/10 p-6 rounded-2xl flex items-center justify-between">
+  const handleReject = async (notification) => {
+    setLoadingId(notification.id);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/reject-station-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: notification.id }),
+      });
+      if (response.ok) {
+        setToast({ type: 'success', title: 'Request Rejected' });
+        fetchData();
+        if (toastTimerRef.current) {
+          clearTimeout(toastTimerRef.current);
+        }
+        toastTimerRef.current = setTimeout(() => {
+          setToast(null);
+          toastTimerRef.current = null;
+        }, 10000);
+      }
+    } catch (err) { console.error("Reject failed", err); }
+    finally { setLoadingId(null); }
+  };
+
+  const StatCard = ({ title, value, icon: Icon, color, unit = "" }) => (
+    <div className="bg-white/5 border border-white/10 p-6 rounded-2xl flex items-center justify-between group hover:bg-white/10 transition-all duration-300">
       <div>
-        <h3 className="text-gray-400 text-sm font-medium mb-1">{title}</h3>
-        <p className={`text-3xl font-bold ${color}`}>{value}</p>
+        <h3 className="text-gray-400 text-xs font-bold mb-1 uppercase tracking-widest">{title}</h3>
+        <p className={`text-3xl font-bold ${color} font-mono flex items-baseline gap-1`}>
+          {typeof value === 'number' ? value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : value}
+          {unit && <span className="text-[14px] font-medium opacity-60 ml-1 tracking-normal">{unit}</span>}
+        </p>
       </div>
-      <div className={`p-3 rounded-xl bg-white/5 ${color.replace('text-', 'bg-')}/10 ${color}`}>
+      <div className={`p-4 rounded-xl bg-white/5 ${color.replace('text-', 'bg-')}/10 ${color} shadow-lg shadow-black/20`}>
         <Icon size={24} />
       </div>
     </div>
@@ -97,12 +151,12 @@ export default function AdminOverview() {
 
   return (
     <div className="p-10">
-        <div className="flex justify-between items-center mb-10">
-          <div className="flex items-center gap-4">
-            <h2 className="text-3xl font-bold">Dashboard Overview</h2>
-            <span className="bg-gradient-to-r from-fuchsia-500 to-purple-500 text-white text-sm font-bold px-5 py-1 rounded-2xl shadow">
-              Colombo District
-            </span>
+      <div className="flex justify-between items-center mb-10">
+        <div className="flex items-center gap-4">
+          <h2 className="text-3xl font-bold">Dashboard Overview</h2>
+          <span className="bg-gradient-to-r from-fuchsia-500 to-purple-500 text-white text-sm font-bold px-5 py-1 rounded-2xl shadow">
+            Colombo District
+          </span>
         </div>
         <div className="flex items-center gap-4">
           <div className="relative">
@@ -111,24 +165,40 @@ export default function AdminOverview() {
               className="relative p-2.5 bg-white/5 hover:bg-white/10 rounded-xl transition cursor-pointer border border-white/10"
             >
               <Bell size={20} className="text-fuchsia-500" />
-              {notifications.length > 0 && (
+              {notifications.filter(n => n.status === 'pending').length > 0 && (
                 <span className="absolute top-0 right-0 h-4 w-4 bg-red-500 rounded-full text-[10px] font-bold flex items-center justify-center border-2 border-[#0B1220]">
-                  {notifications.length}
+                  {notifications.filter(n => n.status === 'pending').length}
                 </span>
               )}
             </button>
 
             {showNotifications && (
               <div className="absolute right-0 mt-3 w-80 bg-[#16213A] border border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden">
-                <div className="p-4 border-b border-white/10 flex justify-between items-center">
+                <div className="p-4 border-b border-white/10 flex justify-between items-center bg-[#182542]">
                   <h3 className="font-bold text-fuchsia-300">Reset Requests</h3>
-                  <X size={16} className="cursor-pointer text-gray-500" onClick={() => setShowNotifications(false)} />
+                  <X size={16} className="cursor-pointer text-gray-500 hover:text-white transition" onClick={() => setShowNotifications(false)} />
                 </div>
-                <div className="max-h-96 overflow-y-auto">
-                  {notifications.length === 0 ? (
-                    <p className="p-4 text-center text-gray-400 text-sm">Clear</p>
+
+                <div className="flex border-b border-white/10 bg-white/5">
+                  {['pending', 'resolved', 'rejected'].map(tab => (
+                    <button
+                      key={tab}
+                      onClick={() => setNotificationTab(tab)}
+                      className={`flex-1 py-2.5 text-xs font-bold capitalize transition-colors ${notificationTab === tab
+                          ? 'border-b-2 border-fuchsia-500 text-fuchsia-400 bg-white/5'
+                          : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
+                        }`}
+                    >
+                      {tab === 'resolved' ? 'Approved' : tab}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="max-h-72 overflow-y-auto low-stock-scrollbar">
+                  {notifications.filter(n => n.status === (notificationTab === 'approved' ? 'resolved' : notificationTab)).length === 0 ? (
+                    <p className="p-8 text-center text-gray-400 text-sm">No {notificationTab === 'resolved' ? 'approved' : notificationTab} requests</p>
                   ) : (
-                    notifications.map(n => (
+                    notifications.filter(n => n.status === (notificationTab === 'approved' ? 'resolved' : notificationTab)).map(n => (
                       <div key={n.id} className="p-4 border-b border-white/5 hover:bg-white/5 transition flex flex-col gap-1">
                         <div className="flex justify-between items-start">
                           <p className="text-xs font-mono text-fuchsia-400 uppercase tracking-wider">{n.station_username}</p>
@@ -144,13 +214,43 @@ export default function AdminOverview() {
                             <span>{n.email}</span>
                           </div>
                         </div>
-                        <button 
-                          onClick={() => handleApprove(n)}
-                          disabled={loadingId === n.id}
-                          className="mt-3 w-full py-2 bg-fuchsia-500 text-white rounded-xl text-xs font-bold transition hover:bg-fuchsia-600 disabled:opacity-50 shadow-lg shadow-fuchsia-500/10"
-                        >
-                          {loadingId === n.id ? "Sending..." : "Approve & Send"}
-                        </button>
+
+                        {notificationTab === 'pending' ? (
+                          <>
+                            <div className="flex gap-2 mt-3 text-[10px] text-gray-400 font-mono text-center justify-center border-t border-white/5 pt-2">
+                              Requested at: {formatDateTime(n.created_at)}
+                            </div>
+                            <div className="flex gap-2 mt-2">
+                              <button
+                                onClick={() => handleApprove(n)}
+                                disabled={loadingId === n.id}
+                                className="flex-1 py-2 bg-fuchsia-500 text-white rounded-xl text-xs font-bold transition hover:bg-fuchsia-600 disabled:opacity-50 shadow-lg shadow-fuchsia-500/10 cursor-pointer"
+                              >
+                                {loadingId === n.id ? "..." : "Approve"}
+                              </button>
+                              <button
+                                onClick={() => handleReject(n)}
+                                disabled={loadingId === n.id}
+                                className="flex-1 py-2 bg-red-500/10 text-red-400 border border-red-500/20 rounded-xl text-xs font-bold transition hover:bg-red-500/20 disabled:opacity-50 cursor-pointer"
+                              >
+                                {loadingId === n.id ? "..." : "Reject"}
+                              </button>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="mt-3 flex items-center justify-between border-t border-white/5 pt-2">
+                            <div className="flex items-center">
+                              {notificationTab === 'resolved' && <span className="text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded text-[10px] font-bold flex items-center gap-1"><Check size={12} /> APPROVED</span>}
+                              {notificationTab === 'rejected' && <span className="text-red-400 bg-red-500/10 px-2 py-1 rounded text-[10px] font-bold flex items-center gap-1"><X size={12} /> REJECTED</span>}
+                            </div>
+                            <div className="text-gray-400 text-[10px] text-right">
+                              <span className="opacity-70 mr-1">{notificationTab === 'resolved' ? 'Approved:' : 'Rejected:'}</span>
+                              <span className="font-mono text-[10px]">
+                                {n.resolved_at ? formatDateTime(n.resolved_at) : formatDateTime(n.created_at)}
+                              </span>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ))
                   )}
@@ -163,7 +263,7 @@ export default function AdminOverview() {
             onClick={handleGenerateReport}
             className="ml-2 px-4 py-2 bg-fuchsia-600 hover:bg-fuchsia-700 text-white font-semibold rounded-xl shadow transition border border-fuchsia-700 cursor-pointer"
           >
-            
+
             Generate Report
           </button>
         </div>
@@ -171,10 +271,10 @@ export default function AdminOverview() {
 
       <div className="animate-in fade-in duration-500">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-          <StatCard title="Petrol Stock" value={`${stats.total_petrol_stock}L`} icon={Fuel} color="text-fuchsia-400" />
-          <StatCard title="Diesel Stock" value={`${stats.total_diesel_stock}L`} icon={Fuel} color="text-blue-400" />
+          <StatCard title="Petrol Stock" value={stats.total_petrol_stock} unit="L" icon={Fuel} color="text-fuchsia-400" />
+          <StatCard title="Diesel Stock" value={stats.total_diesel_stock} unit="L" icon={Fuel} color="text-blue-400" />
           <StatCard title="Active Stations" value={stats.active_stations} icon={MapPin} color="text-emerald-400" />
-          <StatCard title="Issued Today" value={`${stats.total_fuel_issued_today}L`} icon={Check} color="text-amber-400" />
+          <StatCard title="Issued Today" value={stats.total_fuel_issued_today} unit="L" icon={Check} color="text-amber-400" />
         </div>
 
         {/* Consumption Trend - Full Width */}
@@ -186,11 +286,11 @@ export default function AdminOverview() {
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={analytics.dailyUsage}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
-                <XAxis dataKey="date" stroke="#9CA3AF" fontSize={12} tickFormatter={(val) => new Date(val).toLocaleDateString([], {weekday: 'short', month: 'short', day: 'numeric'})} />
+                <XAxis dataKey="date" stroke="#9CA3AF" fontSize={12} tickFormatter={(val) => new Date(val).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })} />
                 <YAxis stroke="#9CA3AF" fontSize={12} />
-                <Tooltip 
+                <Tooltip
                   contentStyle={{ backgroundColor: '#16213A', border: 'none', borderRadius: '12px' }}
-                  labelFormatter={(val) => new Date(val).toLocaleDateString([], {weekday: 'long', year: 'numeric', month: 'short', day: 'numeric'})}
+                  labelFormatter={(val) => new Date(val).toLocaleDateString([], { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' })}
                 />
                 <Legend />
                 <Bar dataKey="petrol" name="Petrol" fill="#F472B6" radius={[4, 4, 0, 0]} />
@@ -205,7 +305,7 @@ export default function AdminOverview() {
           <h3 className="text-xl font-bold mb-6 flex items-center gap-2 text-red-400">
             🚨 Low Stock Warning
           </h3>
-          <div className="overflow-y-auto pr-2 custom-scrollbar max-h-80 low-stock-scrollbar" style={{maxHeight: '18rem'}}>
+          <div className="overflow-y-auto pr-2 custom-scrollbar max-h-80 low-stock-scrollbar" style={{ maxHeight: '18rem' }}>
             {(!analytics.lowStockStations || analytics.lowStockStations.length === 0) ? (
               <p className="text-gray-400 text-sm italic">All stations have sufficient stock.</p>
             ) : (
@@ -229,8 +329,8 @@ export default function AdminOverview() {
                         <td className="px-4 py-3 text-gray-300 font-mono text-sm">{station.station_id}</td>
                         <td className="px-4 py-3 font-semibold text-white">{station.station_name}</td>
                         <td className="px-4 py-3 text-gray-400 text-sm">{station.location || '—'}</td>
-                        <td className={`px-4 py-3 text-right font-mono text-sm ${station.petrol_stock < 1000 ? 'text-red-400' : 'text-fuchsia-300'}`}>{station.petrol_stock}L</td>
-                        <td className={`px-4 py-3 text-right font-mono text-sm ${station.diesel_stock < 1000 ? 'text-red-400' : 'text-blue-300'}`}>{station.diesel_stock}L</td>
+                        <td className={`px-4 py-3 text-right font-mono text-sm ${station.petrol_stock < 1000 ? 'text-red-400' : 'text-fuchsia-300'}`}>{station.petrol_stock}<span className="text-[10px] opacity-50 ml-0.5">L</span></td>
+                        <td className={`px-4 py-3 text-right font-mono text-sm ${station.diesel_stock < 1000 ? 'text-red-400' : 'text-blue-300'}`}>{station.diesel_stock}<span className="text-[10px] opacity-50 ml-0.5">L</span></td>
                         <td className="px-4 py-3 text-right">
                           {isCritical ? (
                             <span className="text-red-400 bg-red-400/10 px-3 py-1 rounded-lg text-xs font-bold inline-flex items-center gap-1">
@@ -253,8 +353,8 @@ export default function AdminOverview() {
                         <td className="px-4 py-3 text-gray-300 font-mono text-sm">{station.station_id}</td>
                         <td className="px-4 py-3 font-semibold text-white">{station.station_name}</td>
                         <td className="px-4 py-3 text-gray-400 text-sm">{station.location || '—'}</td>
-                        <td className={`px-4 py-3 text-right font-mono text-sm ${station.petrol_stock < 1000 ? 'text-red-400' : 'text-fuchsia-300'}`}>{station.petrol_stock}L</td>
-                        <td className={`px-4 py-3 text-right font-mono text-sm ${station.diesel_stock < 1000 ? 'text-red-400' : 'text-blue-300'}`}>{station.diesel_stock}L</td>
+                        <td className={`px-4 py-3 text-right font-mono text-sm ${station.petrol_stock < 1000 ? 'text-red-400' : 'text-fuchsia-300'}`}>{station.petrol_stock}<span className="text-[10px] opacity-50 ml-0.5">L</span></td>
+                        <td className={`px-4 py-3 text-right font-mono text-sm ${station.diesel_stock < 1000 ? 'text-red-400' : 'text-blue-300'}`}>{station.diesel_stock}<span className="text-[10px] opacity-50 ml-0.5">L</span></td>
                         <td className="px-4 py-3 text-right">
                           {isCritical ? (
                             <span className="text-red-400 bg-red-400/10 px-3 py-1 rounded-lg text-xs font-bold inline-flex items-center gap-1">
@@ -289,9 +389,9 @@ export default function AdminOverview() {
                 <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
                 <XAxis type="number" stroke="#9CA3AF" fontSize={10} />
                 <YAxis dataKey="name" type="category" stroke="#9CA3AF" width={100} fontSize={10} />
-                <Tooltip 
+                <Tooltip
                   contentStyle={{ backgroundColor: '#16213A', border: 'none', borderRadius: '12px' }}
-                  formatter={(value) => [`${value} L`, 'Total Fuel']} 
+                  formatter={(value) => [`${value} L`, 'Total Fuel']}
                   itemStyle={{ color: '#10B981' }}
                 />
                 <Bar dataKey="total_fuel" fill="#10B981" radius={[0, 4, 4, 0]} />
@@ -302,13 +402,11 @@ export default function AdminOverview() {
       </div>
 
       {toast && (
-        <div className={`fixed bottom-8 right-8 max-w-sm p-4 rounded-2xl shadow-2xl border flex items-start gap-4 z-[120] animate-in slide-in-from-right-5 duration-300 ${
-          toast.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-red-500/10 border-red-500/30 text-red-400'
-        }`}>
+        <div className={`fixed bottom-8 right-8 max-w-sm p-4 rounded-2xl shadow-2xl border flex items-start gap-4 z-[120] animate-in slide-in-from-right-5 duration-300 ${toast.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-red-500/10 border-red-500/30 text-red-400'
+          }`}>
           <Check size={24} className="mt-0.5" />
           <div className="flex-1">
             <h4 className="font-bold text-lg mb-1">{toast.title}</h4>
-            <p className="text-sm opacity-90 leading-relaxed">{toast.message}</p>
           </div>
           <X size={16} className="opacity-50 hover:opacity-100 transition cursor-pointer ml-2" onClick={() => setToast(null)} />
         </div>
