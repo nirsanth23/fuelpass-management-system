@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from "react";
-import { Plus, Edit, X, Check, MapPin } from "lucide-react";
+import { Plus, Edit, X, Check, MapPin, ChevronLeft, ChevronRight } from "lucide-react";
 
 export default function StationManagement() {
   const [stations, setStations] = useState([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingStation, setEditingStation] = useState(null);
-  const [formData, setFormData] = useState({ stationId: '', name: '', location: '', password: '1234' });
+  const [formData, setFormData] = useState({ stationId: '', name: '', location: '', email: '' });
   const [toast, setToast] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "http://localhost:8081").replace(/\/$/, "");
 
@@ -23,21 +26,43 @@ export default function StationManagement() {
     fetchStations();
   }, []);
 
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => {
+        setToast(null);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
+
   const handleAddStation = async (e) => {
     e.preventDefault();
+    setIsSubmitting(true);
     try {
       const response = await fetch(`${API_BASE_URL}/api/admin/stations`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       });
+      const resData = await response.json();
       if (response.ok) {
-        setToast({ type: 'success', title: 'Station Added', message: `Station ${formData.stationId} created.` });
+        setToast({ 
+          type: 'success', 
+          title: 'Station Created & Email Sent', 
+          message: `${formData.name || formData.stationId} created. 6-digit password sent to ${formData.email}.` 
+        });
         setShowAddModal(false);
-        setFormData({ stationId: '', name: '', location: '', password: '1234' });
+        setFormData({ stationId: '', name: '', location: '', email: '' });
         fetchStations();
+      } else {
+        setToast({ type: 'error', title: 'Create Failed', message: resData.message || 'Failed to create station.' });
       }
-    } catch (err) { console.error("Add failed", err); }
+    } catch (err) { 
+      console.error("Add failed", err);
+      setToast({ type: 'error', title: 'Create Failed', message: 'Failed to create station. Please try again.' });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleEditStation = async (e) => {
@@ -49,7 +74,7 @@ export default function StationManagement() {
         body: JSON.stringify({ name: formData.name, location: formData.location }),
       });
       if (response.ok) {
-        setToast({ type: 'success', title: 'Updated', message: 'Station updated successfully.' });
+        setToast({ type: 'success', title: 'Updated', message: `${formData.name || editingStation.name} updated successfully.` });
         setShowEditModal(false);
         setEditingStation(null);
         fetchStations();
@@ -57,7 +82,7 @@ export default function StationManagement() {
     } catch (err) { console.error("Update failed", err); }
   };
 
-  const toggleStatus = async (stationId, currentStatus) => {
+  const toggleStatus = async (stationId, currentStatus, stationName) => {
     const newStatus = currentStatus === 'Active' ? 'Inactive' : 'Active';
     try {
       const response = await fetch(`${API_BASE_URL}/api/admin/stations/${stationId}/status`, {
@@ -66,7 +91,8 @@ export default function StationManagement() {
         body: JSON.stringify({ status: newStatus }),
       });
       if (response.ok) {
-        setToast({ type: 'success', title: 'Status Updated', message: `Station is now ${newStatus}.` });
+        const displayName = stationName || stationId;
+        setToast({ type: 'success', title: 'Status Updated', message: `${displayName} is now ${newStatus}.` });
         fetchStations();
       }
     } catch (err) { console.error("Toggle status failed", err); }
@@ -83,7 +109,7 @@ export default function StationManagement() {
         headers: { "Content-Type": "application/json" },
       });
       if (response.ok) {
-        setToast({ type: 'success', title: 'Deleted', message: 'Station deleted successfully.' });
+        setToast({ type: 'success', title: 'Deleted', message: `${editingStation.name || editingStation.station_id} deleted successfully.` });
         setShowEditModal(false);
         setEditingStation(null);
         fetchStations();
@@ -111,13 +137,18 @@ export default function StationManagement() {
     return `ST${String(nextNumber).padStart(3, '0')}`;
   };
 
+  const totalStations = stations.length;
+  const totalPages = Math.ceil(totalStations / rowsPerPage) || 1;
+  const startIndex = (currentPage - 1) * rowsPerPage;
+  const paginatedStations = stations.slice(startIndex, startIndex + rowsPerPage);
+
   return (
     <div className="p-10">
       <div className="flex justify-between items-center mb-10">
         <h2 className="text-3xl font-bold">Stations Management</h2>
         <button
           onClick={() => {
-            setFormData({ stationId: generateNextStationId(), name: '', location: '', password: '1234' });
+            setFormData({ stationId: generateNextStationId(), name: '', location: '', email: '' });
             setShowAddModal(true);
           }}
           className="group flex items-center gap-2 text-gray-300 bg-transparent border border-fuchsia-500 hover:bg-fuchsia-600 hover:text-white px-4 py-2.5 rounded-xl font-bold transition cursor-pointer"
@@ -138,7 +169,7 @@ export default function StationManagement() {
             </tr>
           </thead>
           <tbody className="divide-y divide-white/10">
-            {stations.map(s => (
+            {paginatedStations.map(s => (
               <tr key={s.station_id} className="hover:bg-white/5 transition group">
                 <td className="px-6 py-4 font-mono text-gray-400 text-sm">{s.station_id}</td>
                 <td className="px-6 py-4 font-semibold text-fuchsia-100">{s.name || 'Set Name'}</td>
@@ -153,7 +184,7 @@ export default function StationManagement() {
                   <button
                     onClick={() => {
                       setEditingStation(s);
-                      setFormData({ name: s.name, location: s.location, password: s.password });
+                      setFormData({ name: s.name, location: s.location, email: s.email || '' });
                       setShowEditModal(true);
                     }}
                     className="p-2 text-blue-400 hover:bg-blue-500/10 rounded-lg transition cursor-pointer"
@@ -161,7 +192,7 @@ export default function StationManagement() {
                     <Edit size={18} />
                   </button>
                   <button
-                    onClick={() => toggleStatus(s.station_id, s.status)}
+                    onClick={() => toggleStatus(s.station_id, s.status, s.name)}
                     className={`p-2 rounded-lg transition cursor-pointer ${s.status === 'Active' ? 'text-red-400 hover:bg-red-500/10' : 'text-emerald-400 hover:bg-emerald-500/10'
                       }`}
                   >
@@ -172,39 +203,125 @@ export default function StationManagement() {
             ))}
           </tbody>
         </table>
+
+        {/* Pagination Bar */}
+        <div className="px-6 py-4 bg-white/[0.02] border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm">
+          <div className="flex flex-wrap items-center gap-3 text-gray-400">
+            <span>Rows per page:</span>
+            <select
+              value={rowsPerPage}
+              onChange={(e) => {
+                setRowsPerPage(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+              className="bg-[#16213A] border border-white/10 rounded-lg px-2.5 py-1 text-white outline-none focus:border-fuchsia-500 cursor-pointer"
+            >
+              <option value={5}>5</option>
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+              <option value={50}>50</option>
+            </select>
+            <span className="text-gray-400 text-xs">
+              Showing {totalStations === 0 ? 0 : startIndex + 1} - {Math.min(startIndex + rowsPerPage, totalStations)} of {totalStations} stations
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="px-3 py-1.5 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-white disabled:opacity-30 disabled:cursor-not-allowed transition flex items-center gap-1 cursor-pointer text-xs font-semibold"
+            >
+              <ChevronLeft size={16} /> Previous
+            </button>
+            
+            <div className="flex items-center gap-1">
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter(p => p === 1 || p === totalPages || (p >= currentPage - 1 && p <= currentPage + 1))
+                .map((p, idx, arr) => {
+                  const showEllipsis = idx > 0 && p - arr[idx - 1] > 1;
+                  return (
+                    <React.Fragment key={p}>
+                      {showEllipsis && <span className="px-1 text-gray-500">...</span>}
+                      <button
+                        onClick={() => setCurrentPage(p)}
+                        className={`w-8 h-8 rounded-lg text-xs font-bold transition cursor-pointer ${
+                          currentPage === p
+                            ? "bg-fuchsia-500 text-white shadow-lg shadow-fuchsia-500/30"
+                            : "bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white"
+                        }`}
+                      >
+                        {p}
+                      </button>
+                    </React.Fragment>
+                  );
+                })}
+            </div>
+
+            <button
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="px-3 py-1.5 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-white disabled:opacity-30 disabled:cursor-not-allowed transition flex items-center gap-1 cursor-pointer text-xs font-semibold"
+            >
+              Next <ChevronRight size={16} />
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Modals */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[110] p-4">
-          <div className="bg-[#16213A] border border-white/10 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden">
+          <div className="bg-[#16213A] border border-white/10 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
             <div className="p-6 border-b border-white/10 flex justify-between items-center bg-white/5">
               <h3 className="text-xl font-bold text-fuchsia-400">Add New Station</h3>
-              <X className="cursor-pointer text-gray-500" onClick={() => setShowAddModal(false)} />
+              <X className="cursor-pointer text-gray-400 hover:text-white transition" onClick={() => setShowAddModal(false)} />
             </div>
             <form onSubmit={handleAddStation} className="p-6 space-y-4">
               <div>
-                <label className="block text-[10px] font-bold text-gray-500 mb-2 uppercase tracking-widest">Station ID (Autogenerated)</label>
+                <label className="block text-[10px] font-bold text-gray-400 mb-2 uppercase tracking-widest">Station ID (Autogenerated)</label>
                 <input
                   required
                   readOnly
                   value={formData.stationId}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 opacity-70 cursor-not-allowed text-gray-300 font-mono"
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 opacity-70 cursor-not-allowed text-fuchsia-300 font-mono font-bold"
                 />
               </div>
               <div>
-                <label className="block text-[10px] font-bold text-gray-500 mb-2 uppercase tracking-widest">Station Name</label>
-                <input required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-fuchsia-500" />
+                <label className="block text-[10px] font-bold text-gray-400 mb-2 uppercase tracking-widest">Station Name</label>
+                <input 
+                  required 
+                  value={formData.name} 
+                  onChange={e => setFormData({ ...formData, name: e.target.value })} 
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-fuchsia-500" 
+                />
               </div>
               <div>
-                <label className="block text-[10px] font-bold text-gray-500 mb-2 uppercase tracking-widest">Location</label>
-                <input required value={formData.location} onChange={e => setFormData({ ...formData, location: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-fuchsia-500" />
+                <label className="block text-[10px] font-bold text-gray-400 mb-2 uppercase tracking-widest">Location</label>
+                <input 
+                  required 
+                  value={formData.location} 
+                  onChange={e => setFormData({ ...formData, location: e.target.value })} 
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-fuchsia-500" 
+                />
               </div>
               <div>
-                <label className="block text-[10px] font-bold text-gray-500 mb-2 uppercase tracking-widest">Password</label>
-                <input type="password" required value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-fuchsia-500" />
+                <label className="block text-[10px] font-bold text-gray-400 mb-2 uppercase tracking-widest">Station Email</label>
+                <input 
+                  type="email" 
+                  required 
+                  value={formData.email} 
+                  onChange={e => setFormData({ ...formData, email: e.target.value })} 
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-fuchsia-500" 
+                />
               </div>
-              <button className="w-full bg-fuchsia-500 hover:bg-fuchsia-600 py-4 rounded-xl font-bold mt-4 shadow-lg shadow-fuchsia-500/20 transition cursor-pointer">Create Station</button>
+              <button 
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full bg-fuchsia-500 hover:bg-fuchsia-600 disabled:opacity-50 py-4 rounded-xl font-bold mt-2 shadow-lg shadow-fuchsia-500/20 transition cursor-pointer text-white"
+              >
+                {isSubmitting ? 'Creating Station...' : 'Create Station'}
+              </button>
             </form>
           </div>
         </div>
@@ -277,14 +394,21 @@ export default function StationManagement() {
       )}
 
       {toast && (
-        <div className={`fixed bottom-8 right-8 max-w-sm p-4 rounded-2xl shadow-2xl border flex items-start gap-4 z-[120] animate-in slide-in-from-right-5 duration-300 ${toast.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-red-500/10 border-red-500/30 text-red-400'
-          }`}>
-          <Check size={24} className="mt-0.5" />
-          <div className="flex-1">
-            <h4 className="font-bold text-lg mb-1">{toast.title}</h4>
-            <p className="text-sm opacity-90 leading-relaxed">{toast.message}</p>
+        <div className={`fixed bottom-8 right-8 max-w-sm p-4 rounded-2xl shadow-2xl border flex items-start gap-3.5 z-[120] animate-in slide-in-from-right-5 duration-300 bg-[#16213A] ${
+          toast.type === 'success' ? 'border-emerald-500/50 shadow-emerald-950/50' : 'border-red-500/50 shadow-red-950/50'
+        }`}>
+          <div className={`p-2 rounded-xl mt-0.5 shrink-0 ${toast.type === 'success' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>
+            <Check size={18} strokeWidth={2.5} />
           </div>
-          <X size={16} className="opacity-50 hover:opacity-100 transition cursor-pointer ml-2" onClick={() => setToast(null)} />
+          <div className="flex-1 min-w-0">
+            <h4 className={`font-bold text-sm mb-0.5 ${toast.type === 'success' ? 'text-emerald-400' : 'text-red-400'}`}>
+              {toast.title}
+            </h4>
+            <p className="text-xs text-gray-200 leading-relaxed">{toast.message}</p>
+          </div>
+          <button onClick={() => setToast(null)} className="text-gray-400 hover:text-white transition cursor-pointer p-1 shrink-0">
+            <X size={16} />
+          </button>
         </div>
       )}
     </div>

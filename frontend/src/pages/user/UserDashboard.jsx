@@ -1,6 +1,21 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Fuel, Calendar, Car, AlertCircle, LogOut, User, Edit, X, Check, ChevronDown, Plus } from "lucide-react";
+import { Fuel, Calendar, Car, AlertCircle, LogOut, User, Edit, X, Check, ChevronDown, Plus, Download, Loader2 } from "lucide-react";
+import pdfMake from "pdfmake/build/pdfmake";
+import pdfFonts from "pdfmake/build/vfs_fonts";
+
+pdfMake.vfs = pdfFonts.vfs;
+
+const getBase64ImageFromUrl = async (imageUrl) => {
+  const res = await fetch(imageUrl);
+  const blob = await res.blob();
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+};
 
 export default function UserDashboard() {
   const navigate = useNavigate();
@@ -13,6 +28,7 @@ export default function UserDashboard() {
   const [error, setError] = useState("");
   const [showQr, setShowQr] = useState(false);
   const [reservedUntil, setReservedUntil] = useState(null);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   const fetchUserData = async (vNum = "") => {
     const token = localStorage.getItem("fuelpass_token");
@@ -59,6 +75,169 @@ export default function UserDashboard() {
     fetchUserData(vNum);
   }, [navigate, searchParams]);
 
+  const downloadQrPdf = async () => {
+    if (!userData || !userData.vehicle_number || isGeneratingPdf) return;
+    setIsGeneratingPdf(true);
+    try {
+      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=350x350&data=${encodeURIComponent(userData.vehicle_number)}`;
+      const qrBase64 = await getBase64ImageFromUrl(qrUrl);
+
+      const ownerName = [userData.first_name, userData.last_name].filter(Boolean).join(" ") || "N/A";
+      const nicNumber = userData.nic || "N/A";
+
+      const docDefinition = {
+        pageSize: "A5",
+        pageOrientation: "portrait",
+        pageMargins: [20, 20, 20, 20],
+        background: function (currentPage, pageSize) {
+          return {
+            canvas: [
+              {
+                type: "rect",
+                x: 0,
+                y: 0,
+                w: pageSize.width,
+                h: pageSize.height,
+                color: "#0B1220",
+              },
+            ],
+          };
+        },
+        content: [
+          {
+            table: {
+              widths: ["*"],
+              body: [
+                [
+                  {
+                    fillColor: "#16213A",
+                    margin: [16, 16, 16, 16],
+                    layout: "noBorders",
+                    table: {
+                      widths: ["*"],
+                      body: [
+                        [
+                          {
+                            text: "SRI LANKA NATIONAL FUEL PASS",
+                            fontSize: 16,
+                            bold: true,
+                            color: "#06B6D4",
+                            alignment: "center",
+                            margin: [0, 4, 0, 2],
+                          },
+                        ],
+                        [
+                          {
+                            text: "Ministry of Power and Energy",
+                            fontSize: 9,
+                            color: "#94A3B8",
+                            alignment: "center",
+                            margin: [0, 0, 0, 14],
+                          },
+                        ],
+                        [
+                          {
+                            table: {
+                              widths: ["*"],
+                              body: [
+                                [
+                                  {
+                                    fillColor: "#FFFFFF",
+                                    alignment: "center",
+                                    margin: [8, 8, 8, 8],
+                                    stack: [
+                                      {
+                                        image: qrBase64,
+                                        width: 175,
+                                        alignment: "center",
+                                      },
+                                      {
+                                        text: userData.vehicle_number,
+                                        fontSize: 14,
+                                        bold: true,
+                                        color: "#0F172A",
+                                        alignment: "center",
+                                        margin: [0, 6, 0, 0],
+                                      },
+                                    ],
+                                  },
+                                ],
+                              ],
+                            },
+                            layout: {
+                              hLineWidth: () => 1,
+                              vLineWidth: () => 1,
+                              hLineColor: () => "#CBD5E1",
+                              vLineColor: () => "#CBD5E1",
+                            },
+                            margin: [20, 0, 20, 16],
+                          },
+                        ],
+                        [
+                          {
+                            table: {
+                              widths: ["38%", "62%"],
+                              body: [
+                                [
+                                  { text: "Vehicle Number:", bold: true, color: "#94A3B8", fontSize: 10, margin: [0, 2, 0, 2] },
+                                  { text: userData.vehicle_number || "-", bold: true, color: "#FFFFFF", fontSize: 10, margin: [0, 2, 0, 2] },
+                                ],
+                                [
+                                  { text: "Vehicle Type:", bold: true, color: "#94A3B8", fontSize: 10, margin: [0, 2, 0, 2] },
+                                  { text: userData.vehicle_type || "-", color: "#FFFFFF", fontSize: 10, margin: [0, 2, 0, 2] },
+                                ],
+                                [
+                                  { text: "Fuel Type:", bold: true, color: "#94A3B8", fontSize: 10, margin: [0, 2, 0, 2] },
+                                  { text: userData.fuel_type || "-", color: "#FFFFFF", fontSize: 10, margin: [0, 2, 0, 2] },
+                                ],
+                                [
+                                  { text: "NIC Number:", bold: true, color: "#94A3B8", fontSize: 10, margin: [0, 2, 0, 2] },
+                                  { text: nicNumber, bold: true, color: "#FFFFFF", fontSize: 10, margin: [0, 2, 0, 2] },
+                                ],
+                                [
+                                  { text: "Owner Name:", bold: true, color: "#94A3B8", fontSize: 10, margin: [0, 2, 0, 2] },
+                                  { text: ownerName, color: "#FFFFFF", fontSize: 10, margin: [0, 2, 0, 2] },
+                                ],
+                              ],
+                            },
+                            layout: "noBorders",
+                            margin: [8, 4, 8, 16],
+                          },
+                        ],
+                        [
+                          {
+                            text: "Present this QR code at any authorized fuel station to obtain fuel.",
+                            fontSize: 8,
+                            color: "#64748B",
+                            alignment: "center",
+                            italics: true,
+                          },
+                        ],
+                      ],
+                    },
+                  },
+                ],
+              ],
+            },
+            layout: {
+              hLineWidth: () => 1,
+              vLineWidth: () => 1,
+              hLineColor: "#06B6D4",
+              vLineColor: "#06B6D4",
+            },
+          },
+        ],
+      };
+
+      pdfMake.createPdf(docDefinition).download(`FuelPass_${userData.vehicle_number}.pdf`);
+    } catch (err) {
+      console.error("PDF generation failed:", err);
+      alert("Failed to generate PDF. Please try again.");
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  };
+
   useEffect(() => {
     if (userData) {
       setReservedUntil(userData.reserved_until || null);
@@ -78,23 +257,19 @@ export default function UserDashboard() {
   const getQuotaInfo = () => {
     if (!userData || !userData.vehicle_type) return null;
 
-    const rawType = userData.vehicle_type.toLowerCase();
-    const type = rawType === "motorcycle" ? "bike" : rawType;
-    let totalQuota = 20; // Default
+    const weeklyLimit = parseFloat(userData.weekly_limit != null ? userData.weekly_limit : 20);
+    const carryForwardLimit = parseFloat(userData.carry_forward_limit != null ? userData.carry_forward_limit : 0);
+    const totalQuota = weeklyLimit;
 
-    if (type === "bike") totalQuota = 5;
-    else if (type === "car") totalQuota = 15;
-    else if (type === "threewheeler") totalQuota = 15;
-    else if (type === "van") totalQuota = 50;
-    else if (type === "lorry") totalQuota = 100;
-
-    const used = userData.used_fuel || 0;
+    const used = parseFloat(userData.used_fuel || 0);
     const remaining = Math.max(0, totalQuota - used);
 
-    return { totalQuota, used, remaining, type };
+    return { totalQuota, weeklyLimit, carryForwardLimit, used, remaining, type: userData.vehicle_type };
   };
 
   const quota = getQuotaInfo();
+  const reservedAmount = quota ? Math.min(quota.remaining, quota.carryForwardLimit) : 0;
+  const availableAmount = (quota && reservedUntil) ? Math.max(0, quota.remaining - reservedAmount) : (quota ? quota.remaining : 0);
 
   const formatDate = (dateStr) => {
     if (!dateStr) return "";
@@ -159,10 +334,21 @@ export default function UserDashboard() {
             <div className="h-8 w-[1px] bg-white/10 hidden sm:block mx-1"></div>
 
             <button
-              onClick={() => navigate("/user/add-vehicle")}
-              className="flex items-center gap-2 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 transition px-4 py-2.5 rounded-xl cursor-pointer border border-cyan-500/30 text-sm font-bold"
+              onClick={() => {
+                if (vehicles.length >= 3) {
+                  alert("Maximum limit reached! You can only register up to 3 vehicles per NIC.");
+                  return;
+                }
+                navigate("/user/add-vehicle");
+              }}
+              className={`flex items-center gap-2 transition px-4 py-2.5 rounded-xl border text-sm font-bold ${
+                vehicles.length >= 3
+                  ? "bg-white/5 text-gray-500 border-white/10 cursor-not-allowed opacity-60"
+                  : "bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border-cyan-500/30 cursor-pointer"
+              }`}
+              title={vehicles.length >= 3 ? "Maximum 3 vehicles allowed per NIC" : "Add Vehicle"}
             >
-              <Plus size={18} /> Add Vehicle
+              <Plus size={18} /> Add Vehicle {vehicles.length > 0 && <span className="text-xs opacity-75">({vehicles.length}/3)</span>}
             </button>
             <button
               onClick={() => {
@@ -208,11 +394,11 @@ export default function UserDashboard() {
                     <>
                       <div
                         className="h-full bg-gradient-to-r from-cyan-400 to-blue-500 transition-all duration-500"
-                        style={{ width: `${(Math.max(0, quota.remaining - 3) / quota.totalQuota) * 100}%` }}
+                        style={{ width: `${(availableAmount / quota.totalQuota) * 100}%` }}
                       ></div>
                       <div
                         className="h-full bg-gradient-to-r from-emerald-400 to-green-600 transition-all duration-500"
-                        style={{ width: `${(Math.min(quota.remaining, 3) / quota.totalQuota) * 100}%` }}
+                        style={{ width: `${(reservedAmount / quota.totalQuota) * 100}%` }}
                       ></div>
                     </>
                   ) : (
@@ -225,12 +411,12 @@ export default function UserDashboard() {
                 <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
                   <div className="flex items-center gap-2 text-cyan-400">
                     <div className="w-3 h-3 rounded-full bg-cyan-400 shadow-sm shadow-cyan-400/20"></div>
-                    Available: {reservedUntil ? Math.max(0, quota.remaining - 3) : quota.remaining}<span className="text-[10px] opacity-60 ml-0.5">L</span>
+                    Available: {availableAmount}<span className="text-[10px] opacity-60 ml-0.5">L</span>
                   </div>
                   {reservedUntil && (
                     <div className="flex items-center gap-2 text-emerald-400">
                       <div className="w-3 h-3 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400/20"></div>
-                      Reserved: {Math.min(quota.remaining, 3)}<span className="text-[10px] opacity-60 ml-0.5">L</span>
+                      Reserved: {reservedAmount}<span className="text-[10px] opacity-60 ml-0.5">L</span>
                     </div>
                   )}
                   <div className="flex items-center gap-2 text-gray-400">
@@ -360,18 +546,19 @@ export default function UserDashboard() {
           <div className="relative w-full max-w-sm rounded-[32px] bg-[#16213A] border border-white/10 p-8 shadow-2xl animate-in zoom-in-95 duration-300">
             <button
               onClick={() => setShowQr(false)}
-              className="absolute top-6 right-6 p-2 rounded-full hover:bg-white/5 transition text-gray-400 hover:text-white cursor-pointer"
+              className="absolute top-4 right-4 p-2 rounded-full hover:bg-white/10 text-gray-400 hover:text-white transition cursor-pointer z-10"
             >
-              <X size={24} />
+              <X size={20} strokeWidth={2.5} />
             </button>
 
             <div className="text-center">
-              <div className="mb-6 inline-flex p-4 rounded-2xl bg-cyan-500/10 border border-cyan-500/20">
-                <Fuel size={32} className="text-cyan-400" />
+              <div className="flex items-center justify-center gap-2.5 mb-1.5 mt-1">
+                <h2 className="text-2xl font-bold">Your Fuel Pass</h2>
+                <div className="p-2 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 inline-flex items-center justify-center">
+                  <Fuel size={20} />
+                </div>
               </div>
-
-              <h2 className="text-2xl font-bold mb-1">Your Fuel Pass</h2>
-              <p className="text-gray-400 text-sm mb-8">Show this QR to the fuel station</p>
+              <p className="text-gray-400 text-sm mb-6">Show this QR to the fuel station</p>
 
               <div className="bg-white p-6 rounded-3xl mb-8 relative group">
                 <p className="absolute -top-3 left-1/2 -translate-x-1/2 bg-cyan-500 text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-widest shadow-lg">
@@ -385,14 +572,24 @@ export default function UserDashboard() {
               </div>
 
               <div className="space-y-3">
-                <a
-                  href={`https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${userData.vehicle_number}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 font-semibold hover:shadow-lg hover:shadow-cyan-500/20 transition cursor-pointer"
+                <button
+                  type="button"
+                  onClick={downloadQrPdf}
+                  disabled={isGeneratingPdf}
+                  className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 font-semibold hover:shadow-lg hover:shadow-cyan-500/20 transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Download Pass
-                </a>
+                  {isGeneratingPdf ? (
+                    <>
+                      <Loader2 size={18} className="animate-spin" />
+                      Generating PDF...
+                    </>
+                  ) : (
+                    <>
+                      <Download size={18} />
+                      Download Pass
+                    </>
+                  )}
+                </button>
               </div>
             </div>
           </div>

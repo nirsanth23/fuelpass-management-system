@@ -23,6 +23,15 @@ export default function QuotaManagement() {
     fetchQuotaRules();
   }, []);
 
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => {
+        setToast(null);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
+
   const updateQuota = async (rule) => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/admin/quota-rules`, {
@@ -73,8 +82,8 @@ export default function QuotaManagement() {
   };
 
   // Group rules dynamically by the correct database category
-  const rulesGroup1 = quotaRules.filter(r => r.category === 'Light Vehicles');
-  const rulesGroup2 = quotaRules.filter(r => r.category && r.category !== 'Light Vehicles');
+  const rulesGroup1 = quotaRules.filter(r => r.category === 'Light Vehicles' || (!r.category && ['Bike', 'Car', 'Three Wheeler', 'Van'].includes(r.vehicle_type)));
+  const rulesGroup2 = quotaRules.filter(r => (r.category && r.category !== 'Light Vehicles') || (!r.category && !['Bike', 'Car', 'Three Wheeler', 'Van'].includes(r.vehicle_type)));
 
   const QuotaTable = ({ title, rules }) => (
     <div className="flex-1 min-w-[400px]">
@@ -259,14 +268,21 @@ export default function QuotaManagement() {
       )}
 
       {toast && (
-        <div className={`fixed bottom-8 right-8 max-w-sm p-4 rounded-2xl shadow-2xl border flex items-start gap-4 z-[120] animate-in slide-in-from-right-5 duration-300 ${toast.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-red-500/10 border-red-500/30 text-red-400'
-          }`}>
-          <Check size={24} className="mt-0.5" />
-          <div className="flex-1">
-            <h4 className="font-bold text-lg mb-1">{toast.title}</h4>
-            <p className="text-sm opacity-90 leading-relaxed">{toast.message}</p>
+        <div className={`fixed bottom-8 right-8 max-w-sm p-4 rounded-2xl shadow-2xl border flex items-start gap-3.5 z-[120] animate-in slide-in-from-right-5 duration-300 bg-[#16213A] ${
+          toast.type === 'success' ? 'border-emerald-500/50 shadow-emerald-950/50' : 'border-red-500/50 shadow-red-950/50'
+        }`}>
+          <div className={`p-2 rounded-xl mt-0.5 shrink-0 ${toast.type === 'success' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>
+            <Check size={18} strokeWidth={2.5} />
           </div>
-          <X size={16} className="opacity-50 hover:opacity-100 transition cursor-pointer ml-2" onClick={() => setToast(null)} />
+          <div className="flex-1 min-w-0">
+            <h4 className={`font-bold text-sm mb-0.5 ${toast.type === 'success' ? 'text-emerald-400' : 'text-red-400'}`}>
+              {toast.title}
+            </h4>
+            <p className="text-xs text-gray-200 leading-relaxed">{toast.message}</p>
+          </div>
+          <button onClick={() => setToast(null)} className="text-gray-400 hover:text-white transition cursor-pointer p-1 shrink-0">
+            <X size={16} />
+          </button>
         </div>
       )}
     </div>

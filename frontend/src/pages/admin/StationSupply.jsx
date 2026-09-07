@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Fuel, Edit, X, Check, Calendar, Droplets, Eye, Search } from "lucide-react";
+import { Fuel, Edit, X, Check, Calendar, Droplets, Eye, Search, ChevronLeft, ChevronRight } from "lucide-react";
 
 export default function StationSupply() {
   const [stations, setStations] = useState([]);
@@ -10,6 +10,10 @@ export default function StationSupply() {
   const [historyStation, setHistoryStation] = useState(null);
   const [supplyHistory, setSupplyHistory] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [historyCurrentPage, setHistoryCurrentPage] = useState(1);
+  const [historyRowsPerPage, setHistoryRowsPerPage] = useState(5);
   const [formData, setFormData] = useState({ 
     petrol_stock: 0, 
     diesel_stock: 0, 
@@ -45,10 +49,28 @@ export default function StationSupply() {
     fetchStations();
   }, []);
 
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => {
+        setToast(null);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
+
   const filteredStations = stations.filter(s => 
     s.station_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
     s.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
+
+  const totalStations = filteredStations.length;
+  const totalPages = Math.ceil(totalStations / rowsPerPage) || 1;
+  const startIndex = (currentPage - 1) * rowsPerPage;
+  const paginatedStations = filteredStations.slice(startIndex, startIndex + rowsPerPage);
 
   const handleUpdateSupply = async (e) => {
     e.preventDefault();
@@ -59,7 +81,7 @@ export default function StationSupply() {
         body: JSON.stringify(formData),
       });
       if (response.ok) {
-        setToast({ type: 'success', title: 'Supply Updated', message: `Stock levels for ${editingStation.station_id} updated.` });
+        setToast({ type: 'success', title: 'Supply Updated', message: `Stock levels for ${editingStation.name || editingStation.station_id} updated.` });
         setShowEditModal(false);
         setEditingStation(null);
         fetchStations();
@@ -99,7 +121,7 @@ export default function StationSupply() {
             </tr>
           </thead>
           <tbody className="divide-y divide-white/10">
-            {filteredStations.map(s => (
+            {paginatedStations.map(s => (
               <tr key={s.station_id} className="hover:bg-white/5 transition group">
                 <td className="px-6 py-4 min-w-[200px]">
                   <p className="font-semibold text-white">{s.name}</p>
@@ -122,6 +144,7 @@ export default function StationSupply() {
                   <button 
                     onClick={() => {
                         setHistoryStation(s);
+                        setHistoryCurrentPage(1);
                         fetchHistory(s.station_id);
                         setShowHistoryModal(true);
                     }}
@@ -150,6 +173,70 @@ export default function StationSupply() {
             ))}
           </tbody>
         </table>
+
+        {/* Pagination Bar */}
+        <div className="px-6 py-4 bg-white/[0.02] border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm">
+          <div className="flex flex-wrap items-center gap-3 text-gray-400">
+            <span>Rows per page:</span>
+            <select
+              value={rowsPerPage}
+              onChange={(e) => {
+                setRowsPerPage(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+              className="bg-[#16213A] border border-white/10 rounded-lg px-2.5 py-1 text-white outline-none focus:border-fuchsia-500 cursor-pointer"
+            >
+              <option value={5}>5</option>
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+              <option value={50}>50</option>
+            </select>
+            <span className="text-gray-400 text-xs">
+              Showing {totalStations === 0 ? 0 : startIndex + 1} - {Math.min(startIndex + rowsPerPage, totalStations)} of {totalStations} stations
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="px-3 py-1.5 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-white disabled:opacity-30 disabled:cursor-not-allowed transition flex items-center gap-1 cursor-pointer text-xs font-semibold"
+            >
+              <ChevronLeft size={16} /> Previous
+            </button>
+            
+            <div className="flex items-center gap-1">
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter(p => p === 1 || p === totalPages || (p >= currentPage - 1 && p <= currentPage + 1))
+                .map((p, idx, arr) => {
+                  const showEllipsis = idx > 0 && p - arr[idx - 1] > 1;
+                  return (
+                    <React.Fragment key={p}>
+                      {showEllipsis && <span className="px-1 text-gray-500">...</span>}
+                      <button
+                        onClick={() => setCurrentPage(p)}
+                        className={`w-8 h-8 rounded-lg text-xs font-bold transition cursor-pointer ${
+                          currentPage === p
+                            ? "bg-fuchsia-500 text-white shadow-lg shadow-fuchsia-500/30"
+                            : "bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white"
+                        }`}
+                      >
+                        {p}
+                      </button>
+                    </React.Fragment>
+                  );
+                })}
+            </div>
+
+            <button
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="px-3 py-1.5 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-white disabled:opacity-30 disabled:cursor-not-allowed transition flex items-center gap-1 cursor-pointer text-xs font-semibold"
+            >
+              Next <ChevronRight size={16} />
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Edit Supply Modal */}
@@ -224,7 +311,7 @@ export default function StationSupply() {
               </button>
             </div>
             
-            <div className="p-6 max-h-[60vh] overflow-y-auto scrollbar-hide">
+            <div className="p-6">
               {loadingHistory ? (
                 <div className="flex justify-center p-10"><Fuel className="animate-spin text-fuchsia-500" /></div>
               ) : supplyHistory.length === 0 ? (
@@ -232,26 +319,104 @@ export default function StationSupply() {
                   <p className="text-gray-500 italic">No supply records found for this station.</p>
                 </div>
               ) : (
-                <table className="w-full text-left border-separate border-spacing-y-2">
-                  <thead>
-                    <tr className="text-[10px] uppercase tracking-widest text-gray-500 border-b border-white/5">
-                      <th className="px-4 py-2">Date & Time</th>
-                      <th className="px-4 py-2 text-right text-fuchsia-400">Petrol (L)</th>
-                      <th className="px-4 py-2 text-right text-blue-400">Diesel (L)</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {supplyHistory.map(h => (
-                      <tr key={h.id} className="bg-white/5 hover:bg-white/10 transition group">
-                        <td className="px-4 py-3 text-xs text-gray-300 rounded-l-xl">
-                          {new Date(h.supplied_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
-                        </td>
-                        <td className="px-4 py-3 text-right font-mono text-fuchsia-300 text-sm">{h.petrol_amount}<span className="text-[10px] opacity-50 ml-0.5">L</span></td>
-                        <td className="px-4 py-3 text-right font-mono text-blue-300 text-sm rounded-r-xl">{h.diesel_amount}<span className="text-[10px] opacity-50 ml-0.5">L</span></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <>
+                  <div className="overflow-x-auto min-h-[220px]">
+                    <table className="w-full text-left border-separate border-spacing-y-2">
+                      <thead>
+                        <tr className="text-[10px] uppercase tracking-widest text-gray-500 border-b border-white/5">
+                          <th className="px-4 py-2">Date & Time</th>
+                          <th className="px-4 py-2 text-right text-fuchsia-400">Petrol (L)</th>
+                          <th className="px-4 py-2 text-right text-blue-400">Diesel (L)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(() => {
+                          const startIdx = (historyCurrentPage - 1) * historyRowsPerPage;
+                          return supplyHistory.slice(startIdx, startIdx + historyRowsPerPage).map(h => (
+                            <tr key={h.id} className="bg-white/5 hover:bg-white/10 transition group">
+                              <td className="px-4 py-3 text-xs text-gray-300 rounded-l-xl">
+                                {new Date(h.supplied_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
+                              </td>
+                              <td className="px-4 py-3 text-right font-mono text-fuchsia-300 text-sm">{Number(h.petrol_amount).toFixed(2)}<span className="text-[10px] opacity-50 ml-0.5">L</span></td>
+                              <td className="px-4 py-3 text-right font-mono text-blue-300 text-sm rounded-r-xl">{Number(h.diesel_amount).toFixed(2)}<span className="text-[10px] opacity-50 ml-0.5">L</span></td>
+                            </tr>
+                          ));
+                        })()}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* History Pagination Bar */}
+                  {(() => {
+                    const totalHistory = supplyHistory.length;
+                    const totalHistoryPages = Math.ceil(totalHistory / historyRowsPerPage) || 1;
+                    const startIdx = (historyCurrentPage - 1) * historyRowsPerPage;
+
+                    return (
+                      <div className="pt-4 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs mt-3">
+                        <div className="flex flex-wrap items-center gap-2 text-gray-400">
+                          <span>Rows:</span>
+                          <select
+                            value={historyRowsPerPage}
+                            onChange={(e) => {
+                              setHistoryRowsPerPage(Number(e.target.value));
+                              setHistoryCurrentPage(1);
+                            }}
+                            className="bg-[#0B1220] border border-white/10 rounded-lg px-2 py-1 text-white outline-none focus:border-fuchsia-500 cursor-pointer"
+                          >
+                            <option value={5}>5</option>
+                            <option value={10}>10</option>
+                            <option value={20}>20</option>
+                          </select>
+                          <span className="text-gray-400">
+                            Showing {totalHistory === 0 ? 0 : startIdx + 1} - {Math.min(startIdx + historyRowsPerPage, totalHistory)} of {totalHistory}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => setHistoryCurrentPage(p => Math.max(1, p - 1))}
+                            disabled={historyCurrentPage === 1}
+                            className="px-2.5 py-1 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-white disabled:opacity-30 disabled:cursor-not-allowed transition flex items-center gap-1 cursor-pointer font-semibold"
+                          >
+                            <ChevronLeft size={14} /> Prev
+                          </button>
+
+                          <div className="flex items-center gap-1">
+                            {Array.from({ length: totalHistoryPages }, (_, i) => i + 1)
+                              .filter(p => p === 1 || p === totalHistoryPages || (p >= historyCurrentPage - 1 && p <= historyCurrentPage + 1))
+                              .map((p, idx, arr) => {
+                                const showEllipsis = idx > 0 && p - arr[idx - 1] > 1;
+                                return (
+                                  <React.Fragment key={p}>
+                                    {showEllipsis && <span className="px-1 text-gray-500">...</span>}
+                                    <button
+                                      onClick={() => setHistoryCurrentPage(p)}
+                                      className={`w-7 h-7 rounded-lg text-xs font-bold transition cursor-pointer ${
+                                        historyCurrentPage === p
+                                          ? "bg-fuchsia-500 text-white shadow-lg shadow-fuchsia-500/30"
+                                          : "bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white"
+                                      }`}
+                                    >
+                                      {p}
+                                    </button>
+                                  </React.Fragment>
+                                );
+                              })}
+                          </div>
+
+                          <button
+                            onClick={() => setHistoryCurrentPage(p => Math.min(totalHistoryPages, p + 1))}
+                            disabled={historyCurrentPage === totalHistoryPages || totalHistory === 0}
+                            className="px-2.5 py-1 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-white disabled:opacity-30 disabled:cursor-not-allowed transition flex items-center gap-1 cursor-pointer font-semibold"
+                          >
+                            Next <ChevronRight size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </>
               )}
             </div>
           </div>
@@ -259,15 +424,21 @@ export default function StationSupply() {
       )}
 
       {toast && (
-        <div className={`fixed bottom-8 right-8 max-w-sm p-4 rounded-2xl shadow-2xl border flex items-start gap-4 z-[120] animate-in slide-in-from-right-5 duration-300 ${
-          toast.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-red-500/10 border-red-500/30 text-red-400'
+        <div className={`fixed bottom-8 right-8 max-w-sm p-4 rounded-2xl shadow-2xl border flex items-start gap-3.5 z-[120] animate-in slide-in-from-right-5 duration-300 bg-[#16213A] ${
+          toast.type === 'success' ? 'border-emerald-500/50 shadow-emerald-950/50' : 'border-red-500/50 shadow-red-950/50'
         }`}>
-          <Check size={24} className="mt-0.5" />
-          <div className="flex-1">
-            <h4 className="font-bold text-lg mb-1">{toast.title}</h4>
-            <p className="text-sm opacity-90 leading-relaxed">{toast.message}</p>
+          <div className={`p-2 rounded-xl mt-0.5 shrink-0 ${toast.type === 'success' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>
+            <Check size={18} strokeWidth={2.5} />
           </div>
-          <X size={16} className="opacity-50 hover:opacity-100 transition cursor-pointer ml-2" onClick={() => setToast(null)} />
+          <div className="flex-1 min-w-0">
+            <h4 className={`font-bold text-sm mb-0.5 ${toast.type === 'success' ? 'text-emerald-400' : 'text-red-400'}`}>
+              {toast.title}
+            </h4>
+            <p className="text-xs text-gray-200 leading-relaxed">{toast.message}</p>
+          </div>
+          <button onClick={() => setToast(null)} className="text-gray-400 hover:text-white transition cursor-pointer p-1 shrink-0">
+            <X size={16} />
+          </button>
         </div>
       )}
     </div>

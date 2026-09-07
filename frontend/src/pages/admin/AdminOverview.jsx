@@ -128,20 +128,30 @@ export default function AdminOverview() {
     finally { setLoadingId(null); }
   };
 
-  const StatCard = ({ title, value, icon: Icon, color, unit = "" }) => (
-    <div className="bg-white/5 border border-white/10 p-6 rounded-2xl flex items-center justify-between group hover:bg-white/10 transition-all duration-300">
-      <div>
-        <h3 className="text-gray-400 text-xs font-bold mb-1 uppercase tracking-widest">{title}</h3>
-        <p className={`text-3xl font-bold ${color} font-mono flex items-baseline gap-1`}>
-          {typeof value === 'number' ? value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : value}
-          {unit && <span className="text-[14px] font-medium opacity-60 ml-1 tracking-normal">{unit}</span>}
-        </p>
+  const StatCard = ({ title, value, icon: Icon, color, unit = "", isInteger = false }) => {
+    const isCount = isInteger || title.toLowerCase().includes('station') || !unit;
+    const num = Number(value);
+    const formattedValue = isNaN(num)
+      ? value
+      : (isCount
+          ? Math.round(num).toLocaleString()
+          : num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+
+    return (
+      <div className="bg-white/5 border border-white/10 p-6 rounded-2xl flex items-center justify-between group hover:bg-white/10 transition-all duration-300">
+        <div>
+          <h3 className="text-gray-400 text-xs font-bold mb-1 uppercase tracking-widest">{title}</h3>
+          <p className={`text-3xl font-bold ${color} font-mono flex items-baseline gap-1`}>
+            {formattedValue}
+            {unit && <span className="text-[14px] font-medium opacity-60 ml-1 tracking-normal">{unit}</span>}
+          </p>
+        </div>
+        <div className={`p-4 rounded-xl bg-white/5 ${color.replace('text-', 'bg-')}/10 ${color} shadow-lg shadow-black/20`}>
+          <Icon size={24} />
+        </div>
       </div>
-      <div className={`p-4 rounded-xl bg-white/5 ${color.replace('text-', 'bg-')}/10 ${color} shadow-lg shadow-black/20`}>
-        <Icon size={24} />
-      </div>
-    </div>
-  );
+    );
+  };
 
   const COLORS = ['#F472B6', '#8B5CF6', '#6366F1', '#34D399', '#FBBF24'];
 
@@ -402,13 +412,20 @@ export default function AdminOverview() {
       </div>
 
       {toast && (
-        <div className={`fixed bottom-8 right-8 max-w-sm p-4 rounded-2xl shadow-2xl border flex items-start gap-4 z-[120] animate-in slide-in-from-right-5 duration-300 ${toast.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-red-500/10 border-red-500/30 text-red-400'
-          }`}>
-          <Check size={24} className="mt-0.5" />
-          <div className="flex-1">
-            <h4 className="font-bold text-lg mb-1">{toast.title}</h4>
+        <div className={`fixed bottom-8 right-8 max-w-sm p-4 rounded-2xl shadow-2xl border flex items-start gap-3.5 z-[120] animate-in slide-in-from-right-5 duration-300 bg-[#16213A] ${
+          toast.type === 'success' ? 'border-emerald-500/50 shadow-emerald-950/50' : 'border-red-500/50 shadow-red-950/50'
+        }`}>
+          <div className={`p-2 rounded-xl mt-0.5 shrink-0 ${toast.type === 'success' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>
+            <Check size={18} strokeWidth={2.5} />
           </div>
-          <X size={16} className="opacity-50 hover:opacity-100 transition cursor-pointer ml-2" onClick={() => setToast(null)} />
+          <div className="flex-1 min-w-0">
+            <h4 className={`font-bold text-sm ${toast.type === 'success' ? 'text-emerald-400' : 'text-red-400'}`}>
+              {toast.title}
+            </h4>
+          </div>
+          <button onClick={() => setToast(null)} className="text-gray-400 hover:text-white transition cursor-pointer p-1 shrink-0">
+            <X size={16} />
+          </button>
         </div>
       )}
     </div>
