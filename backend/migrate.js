@@ -26,6 +26,26 @@ async function migrate() {
     });
     console.log("Users table created/verified.");
 
+    const createUserOtpsTable = `
+      CREATE TABLE IF NOT EXISTS user_otps (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        email VARCHAR(255) NOT NULL,
+        otp CHAR(4) NOT NULL,
+        expires_at DATETIME NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_email_created (email, created_at),
+        INDEX idx_email_otp (email, otp)
+      );
+    `;
+
+    await new Promise((resolve, reject) => {
+      db.query(createUserOtpsTable, (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+    console.log("user_otps table created/verified.");
+
     const createVehiclesTable = `
       CREATE TABLE IF NOT EXISTS vehicles (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -99,13 +119,17 @@ async function migrate() {
     await addColumnIfNotExists('fuel_stations', 'last_supplied_date', 'DATE');
     await addColumnIfNotExists('fuel_stations', 'last_supplied_petrol', 'DECIMAL(10, 2) DEFAULT 0');
     await addColumnIfNotExists('fuel_stations', 'last_supplied_diesel', 'DECIMAL(10, 2) DEFAULT 0');
+    await addColumnIfNotExists('fuel_stations', 'phone_number', "VARCHAR(20) DEFAULT '-'");
+    await addColumnIfNotExists('fuel_stations', 'email', "VARCHAR(100) DEFAULT 'station@fuelpass.lk'");
+    await addColumnIfNotExists('fuel_stations', 'must_change_password', 'TINYINT(1) DEFAULT 0');
     console.log("Fuel stations table columns checked/added.");
 
     const createFuelQuotaRulesTable = `
       CREATE TABLE IF NOT EXISTS fuel_quota_rules (
         vehicle_type VARCHAR(50) PRIMARY KEY,
         weekly_limit DECIMAL(10, 2) NOT NULL,
-        carry_forward_limit DECIMAL(10, 2) NOT NULL
+        carry_forward_limit DECIMAL(10, 2) NOT NULL,
+        category VARCHAR(50) DEFAULT 'Light Vehicles'
       );
     `;
 
@@ -115,18 +139,21 @@ async function migrate() {
         else resolve();
       });
     });
-    console.log("Fuel quota rules table created.");
+    await addColumnIfNotExists('fuel_quota_rules', 'category', "VARCHAR(50) DEFAULT 'Light Vehicles'");
+    console.log("Fuel quota rules table created/verified.");
 
     const seedQuotaRules = async () => {
       const rules = [
-        ['Bike', 5, 2],
-        ['Car', 20, 5],
-        ['Three Wheeler', 8, 2],
-        ['Van', 15, 3]
+        ['Bike', 5, 2, 'Light Vehicles'],
+        ['Car', 20, 5, 'Light Vehicles'],
+        ['Three Wheeler', 8, 2, 'Light Vehicles'],
+        ['Van', 15, 3, 'Light Vehicles'],
+        ['Bus', 40, 10, 'Heavy & Special Vehicles'],
+        ['Lorry', 50, 10, 'Heavy & Special Vehicles']
       ];
-      for (const [type, weekly, carry] of rules) {
+      for (const [type, weekly, carry, cat] of rules) {
         await new Promise((resolve) => {
-          db.query('INSERT IGNORE INTO fuel_quota_rules (vehicle_type, weekly_limit, carry_forward_limit) VALUES (?, ?, ?)', [type, weekly, carry], () => resolve());
+          db.query('INSERT IGNORE INTO fuel_quota_rules (vehicle_type, weekly_limit, carry_forward_limit, category) VALUES (?, ?, ?, ?)', [type, weekly, carry, cat], () => resolve());
         });
       }
     };
@@ -166,7 +193,8 @@ async function migrate() {
         station_username VARCHAR(100) NOT NULL,
         email VARCHAR(255) NOT NULL,
         phone_number VARCHAR(20) NOT NULL,
-        status ENUM('pending', 'resolved') DEFAULT 'pending',
+        status ENUM('pending', 'resolved', 'rejected') DEFAULT 'pending',
+        resolved_at TIMESTAMP NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `;
@@ -177,12 +205,14 @@ async function migrate() {
         else resolve();
       });
     });
+    await addColumnIfNotExists('admin_notifications', 'resolved_at', 'TIMESTAMP NULL');
     console.log("Admin notifications table created/verified.");
 
     const createSupplyHistoryTable = `
       CREATE TABLE IF NOT EXISTS fuel_supply_history (
         id INT AUTO_INCREMENT PRIMARY KEY,
         station_id VARCHAR(50),
+        reference_no VARCHAR(50),
         petrol_amount DECIMAL(10, 2) NOT NULL,
         diesel_amount DECIMAL(10, 2) NOT NULL,
         supplied_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -195,7 +225,8 @@ async function migrate() {
         else resolve();
       });
     });
-    console.log("Fuel supply history table created.");
+    await addColumnIfNotExists('fuel_supply_history', 'reference_no', 'VARCHAR(50)');
+    console.log("Fuel supply history table created/verified.");
 
     const seedFuelStations = async () => {
       // Clear existing stations to ensure we have exactly the set we want

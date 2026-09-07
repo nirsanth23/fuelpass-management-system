@@ -116,9 +116,9 @@ const getStations = () => {
 
 const addStation = (stationData) => {
   return new Promise((resolve, reject) => {
-    const { stationId, name, location, password, petrol_stock, diesel_stock, last_supplied_date, last_supplied_petrol, last_supplied_diesel } = stationData;
-    const query = 'INSERT INTO fuel_stations (station_id, name, location, password, petrol_stock, diesel_stock, last_supplied_date, last_supplied_petrol, last_supplied_diesel) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)';
-    db.query(query, [stationId, name, location, password, petrol_stock || 0, diesel_stock || 0, last_supplied_date || null, last_supplied_petrol || 0, last_supplied_diesel || 0], (err, results) => {
+    const { stationId, name, location, email, password, petrol_stock, diesel_stock, last_supplied_date, last_supplied_petrol, last_supplied_diesel, must_change_password } = stationData;
+    const query = 'INSERT INTO fuel_stations (station_id, name, location, email, password, petrol_stock, diesel_stock, last_supplied_date, last_supplied_petrol, last_supplied_diesel, must_change_password) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
+    db.query(query, [stationId, name, location, email || 'station@fuelpass.lk', password, petrol_stock || 0, diesel_stock || 0, last_supplied_date || null, last_supplied_petrol || 0, last_supplied_diesel || 0, must_change_password !== undefined ? must_change_password : 1], (err, results) => {
       if (err) return reject(err);
       resolve(results);
     });

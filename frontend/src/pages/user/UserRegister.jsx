@@ -42,10 +42,7 @@ export default function UserRegister() {
     color: "",
   });
 
-  const isIdentityValid =
-    idType === "nic"
-      ? /^(?:\d{12}|\d{9}[VvXx])$/.test(nicOrPassport.trim())
-      : nicOrPassport.trim().length >= 5;
+  const isIdentityValid = /^(?:\d{12}|\d{9}[vV])$/.test(nicOrPassport.trim());
 
   const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
   const isOtpValid = otp.length === 4;
@@ -243,57 +240,46 @@ export default function UserRegister() {
             <>
               <div>
                 <label className="block mb-2 text-sm text-gray-300">
-                  ID Type and Number
+                  NIC Number
                 </label>
 
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder={idType === "nic" ? "Ex: 67889012V" : "Ex: N1234567"}
-                    value={nicOrPassport}
-                    onChange={(e) => {
-                      setNicOrPassport(e.target.value);
-                      setNicExists(false);
-                      resetMessages();
-                    }}
-                    onBlur={async () => {
-                      if (idType === "nic" && isIdentityValid) {
-                        try {
-                          const response = await fetch(`${API_BASE_URL}/api/auth/check-nic`, {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ nic: nicOrPassport.trim() }),
-                          });
-                          const data = await response.json();
-                          if (data.exists) {
-                            setNicExists(true);
-                            const msg = data.email 
-                              ? `This NIC is already registered in ${data.email}`
-                              : (data.message || "This NIC is already registered");
-                            setErrorMessage(msg);
-                          }
-                        } catch (err) {
-                          console.error("NIC check failed", err);
+                <input
+                  type="text"
+                  maxLength={12}
+                  value={nicOrPassport}
+                  onChange={(e) => {
+                    const val = e.target.value.slice(0, 12);
+                    setNicOrPassport(val);
+                    setNicExists(false);
+                    resetMessages();
+                  }}
+                  onBlur={async () => {
+                    if (isIdentityValid) {
+                      try {
+                        const response = await fetch(`${API_BASE_URL}/api/auth/check-nic`, {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ nic: nicOrPassport.trim() }),
+                        });
+                        const data = await response.json();
+                        if (data.exists) {
+                          setNicExists(true);
+                          const msg = data.email
+                            ? `This NIC is already registered in ${data.email}`
+                            : (data.message || "This NIC is already registered");
+                          setErrorMessage(msg);
                         }
+                      } catch (err) {
+                        console.error("NIC check failed", err);
                       }
-                    }}
-                    className={`w-[250px] rounded-lg border px-4 py-3 text-white placeholder-gray-400 outline-none focus:ring-2 transition ${nicExists ? "border-red-500 focus:ring-red-500 bg-red-500/5" : "border-white/20 bg-white/10 focus:ring-cyan-500"
-                      }`}
-                  />
-
-                  <select
-                    value={idType}
-                    onChange={(e) => setIdType(e.target.value)}
-                    className="w-[150px] rounded-lg border border-white/20 bg-white/10 px-2 py-3 text-white outline-none focus:ring-2 focus:ring-cyan-500"
-                  >
-                    <option value="nic" className="text-black">
-                      NIC
-                    </option>
-                    <option value="passport" className="text-black">
-                      Passport
-                    </option>
-                  </select>
-                </div>
+                    }
+                  }}
+                  className={`w-full rounded-lg border px-4 py-3 text-white outline-none focus:ring-2 transition ${
+                    nicExists
+                      ? "border-red-500 focus:ring-red-500 bg-red-500/5"
+                      : "border-white/20 bg-white/10 focus:ring-cyan-500"
+                  }`}
+                />
               </div>
 
               <div>
@@ -303,10 +289,9 @@ export default function UserRegister() {
 
                 <input
                   type="email"
-                  placeholder="Ex: abc@gmail.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full rounded-lg border border-white/20 bg-white/10 px-4 py-3 text-white placeholder-gray-400 outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full rounded-lg border border-white/20 bg-white/10 px-4 py-3 text-white outline-none focus:ring-2 focus:ring-cyan-500"
                 />
               </div>
 

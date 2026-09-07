@@ -86,20 +86,43 @@ const getStationSupplies = (stationId) => {
 
 const addStationSupply = (stationId, petrol, diesel, referenceNo, suppliedAt) => {
   return new Promise((resolve, reject) => {
-    db.beginTransaction(err => {
+    db.getConnection((err, conn) => {
       if (err) return reject(err);
 
-      const q1 = 'INSERT INTO fuel_supply_history (station_id, reference_no, petrol_amount, diesel_amount, supplied_at) VALUES (?, ?, ?, ?, ?)';
-      db.query(q1, [stationId, referenceNo, petrol, diesel, suppliedAt], (err1, results) => {
-        if (err1) return db.rollback(() => reject(err1));
+      conn.beginTransaction((txErr) => {
+        if (txErr) {
+          conn.release();
+          return reject(txErr);
+        }
 
-        const q2 = 'UPDATE fuel_stations SET petrol_stock = petrol_stock + ?, diesel_stock = diesel_stock + ? WHERE station_id = ?';
-        db.query(q2, [petrol, diesel, stationId], (err2, _) => {
-          if (err2) return db.rollback(() => reject(err2));
+        const q1 = 'INSERT INTO fuel_supply_history (station_id, reference_no, petrol_amount, diesel_amount, supplied_at) VALUES (?, ?, ?, ?, ?)';
+        conn.query(q1, [stationId, referenceNo, petrol, diesel, suppliedAt], (err1, results) => {
+          if (err1) {
+            return conn.rollback(() => {
+              conn.release();
+              reject(err1);
+            });
+          }
 
-          db.commit(err3 => {
-            if (err3) return db.rollback(() => reject(err3));
-            resolve(results);
+          const q2 = 'UPDATE fuel_stations SET petrol_stock = petrol_stock + ?, diesel_stock = diesel_stock + ? WHERE station_id = ?';
+          conn.query(q2, [petrol, diesel, stationId], (err2, _) => {
+            if (err2) {
+              return conn.rollback(() => {
+                conn.release();
+                reject(err2);
+              });
+            }
+
+            conn.commit((err3) => {
+              if (err3) {
+                return conn.rollback(() => {
+                  conn.release();
+                  reject(err3);
+                });
+              }
+              conn.release();
+              resolve(results);
+            });
           });
         });
       });
@@ -128,6 +151,27 @@ const updateStationProfile = (stationId, profileData) => {
   });
 };
 
+const getNextSupplyReferenceNo = (stationId) => {
+  return new Promise((resolve, reject) => {
+    const query = `
+      SELECT COUNT(*) as count 
+      FROM fuel_supply_history 
+      WHERE station_id = ? AND DATE(supplied_at) = CURDATE()
+    `;
+    db.query(query, [stationId], (err, results) => {
+      if (err) return reject(err);
+      const count = (results && results[0]?.count) || 0;
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      const dateStr = `${year}${month}${day}`;
+      const seq = String(count + 1).padStart(3, '0');
+      resolve(`SUP-${stationId}-${dateStr}-${seq}`);
+    });
+  });
+};
+
 module.exports = {
   findStationById,
   updateStationPassword,
@@ -136,5 +180,6 @@ module.exports = {
   getStationSupplies,
   addStationSupply,
   getStationProfile,
-  updateStationProfile
+  updateStationProfile,
+  getNextSupplyReferenceNo
 };

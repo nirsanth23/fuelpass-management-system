@@ -124,7 +124,16 @@ const getVehicles = async (req, res) => {
 const addVehicle = async (req, res) => {
   const { vehicleNumber, chassisNo, vehicleType, fuelType } = req.body;
   try {
-    await require("../models/userModel").createVehicle({
+    const userModel = require("../models/userModel");
+    const existingVehicles = await userModel.getVehiclesByUserId(req.user.userId);
+    
+    if (existingVehicles && existingVehicles.length >= 3) {
+      return res.status(400).json({
+        message: "Maximum limit reached! You can only register a maximum of 3 vehicles per NIC."
+      });
+    }
+
+    await userModel.createVehicle({
       userId: req.user.userId,
       vehicleNumber,
       chassisNo,
@@ -231,11 +240,56 @@ module.exports = {
         message: "Station login successful", 
         token, 
         stationId: station.station_id,
+        mustChangePassword: station.must_change_password === 1 || station.must_change_password === true,
         station 
       });
     } catch (error) {
       console.error("Station login error:", error);
       return res.status(500).json({ message: "Station login failed" });
+    }
+  },
+
+  changeStationPassword: async (req, res) => {
+    const stationId = req.user.stationId || req.user.userId;
+    const { newPassword, confirmPassword } = req.body;
+
+    if (!stationId) {
+      return res.status(401).json({ message: "Unauthorized station access." });
+    }
+
+    if (!newPassword || !confirmPassword) {
+      return res.status(400).json({ message: "New password and confirm password are required." });
+    }
+
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({ message: "Passwords do not match." });
+    }
+
+    // Password validation rule: must have letter, number, and special character
+    const hasLetter = /[a-zA-Z]/.test(newPassword);
+    const hasNumber = /[0-9]/.test(newPassword);
+    const hasSpecial = /[!@#$%^&*(),.?":{}|<>_\-\+=~`\[\]\\\/]/.test(newPassword);
+
+    if (newPassword.length < 6 || !hasLetter || !hasNumber || !hasSpecial) {
+      return res.status(400).json({
+        message: "Password must be at least 6 characters long and include letters, numbers, and at least one special character (!@#$%^&* etc.).",
+      });
+    }
+
+    try {
+      const db = require("../config/db");
+      await new Promise((resolve, reject) => {
+        const query = "UPDATE fuel_stations SET password = ?, must_change_password = 0 WHERE station_id = ?";
+        db.query(query, [newPassword, stationId], (err, results) => {
+          if (err) return reject(err);
+          resolve(results);
+        });
+      });
+
+      return res.json({ message: "Password changed successfully! Welcome to FuelPass." });
+    } catch (error) {
+      console.error("changeStationPassword Error:", error);
+      return res.status(500).json({ message: "Failed to update password." });
     }
   },
 

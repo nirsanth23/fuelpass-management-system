@@ -55,6 +55,17 @@ const updateProfile = async (req, res) => {
   }
 };
 
+const getNextReferenceNo = async (req, res) => {
+  const stationId = req.user.stationId;
+  try {
+    const referenceNo = await stationModel.getNextSupplyReferenceNo(stationId);
+    return res.json({ referenceNo });
+  } catch (error) {
+    console.error("getNextReferenceNo error:", error);
+    return res.status(500).json({ message: "Failed to generate reference number" });
+  }
+};
+
 const addSupply = async (req, res) => {
   const stationId = req.user.stationId;
   const { petrolAmount, dieselAmount, referenceNo, suppliedAt } = req.body;
@@ -64,8 +75,15 @@ const addSupply = async (req, res) => {
   }
 
   try {
-    await stationModel.addStationSupply(stationId, petrolAmount, dieselAmount, referenceNo, suppliedAt);
-    return res.json({ message: "Fuel supply logged and stock updated successfully" });
+    const finalSuppliedAt = suppliedAt && typeof suppliedAt === 'string' && suppliedAt.trim() 
+      ? suppliedAt.replace('T', ' ') 
+      : new Date();
+    const finalRefNo = referenceNo && referenceNo.trim() 
+      ? referenceNo.trim() 
+      : await stationModel.getNextSupplyReferenceNo(stationId);
+      
+    await stationModel.addStationSupply(stationId, petrolAmount, dieselAmount, finalRefNo, finalSuppliedAt);
+    return res.json({ message: "Fuel supply logged and stock updated successfully", referenceNo: finalRefNo });
   } catch (error) {
     console.error("addSupply error:", error);
     return res.status(500).json({ message: "Failed to add supply" });
@@ -76,5 +94,6 @@ module.exports = {
   getDashboardData,
   getProfile,
   updateProfile,
-  addSupply
+  addSupply,
+  getNextReferenceNo
 };

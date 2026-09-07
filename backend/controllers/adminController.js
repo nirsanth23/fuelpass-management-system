@@ -9,7 +9,7 @@ const deleteStation = async (req, res) => {
   }
 };
 const adminModel = require("../models/adminModel");
-const { sendPasswordEmail } = require("../utils/sendEmail");
+const { sendPasswordEmail, sendPasswordResetRejectionEmail, sendStationCredentialsEmail } = require("../utils/sendEmail");
 
 const submitForgotPassword = async (req, res) => {
   const { stationUsername, email, phoneNumber } = req.body;
@@ -44,7 +44,8 @@ const approvePasswordReset = async (req, res) => {
     return res.status(400).json({ message: "Notification ID and Email are required." });
   }
 
-  const newPassword = Math.floor(10000 + Math.random() * 90000).toString();
+  // 6-digit numeric temporary password
+  const newPassword = Math.floor(100000 + Math.random() * 900000).toString();
 
   try {
     const notification = await adminModel.getNotificationById(id);
@@ -53,15 +54,25 @@ const approvePasswordReset = async (req, res) => {
     }
 
     const stationId = notification.station_username;
-    await sendPasswordEmail(email, newPassword);
+
+    // Send approved 6-digit password email
+    await sendPasswordEmail(email, newPassword, stationId, notification.station_name);
     
-    // Update the station's password in the database
+    // Update station password and set must_change_password = 1 in database
     const { updateStationPassword } = require("../models/stationModel");
     await updateStationPassword(stationId, newPassword);
+
+    const db = require("../config/db");
+    await new Promise((resolve, reject) => {
+      db.query("UPDATE fuel_stations SET must_change_password = 1 WHERE station_id = ?", [stationId], (err, results) => {
+        if (err) return reject(err);
+        resolve(results);
+      });
+    });
     
     await adminModel.markNotificationResolved(id);
 
-    return res.json({ message: "Password sent and notification resolved.", newPassword });
+    return res.json({ message: "6-digit temporary password sent and notification approved.", newPassword });
   } catch (error) {
     console.error("approvePasswordReset Error:", error);
     if (error.code === "EAUTH") {
@@ -84,8 +95,18 @@ const rejectPasswordReset = async (req, res) => {
       return res.status(404).json({ message: "Notification not found." });
     }
     
+    const stationId = notification.station_username;
+    const email = notification.email;
+
+    // Mark as rejected
     await adminModel.markNotificationRejected(id);
-    return res.json({ message: "Notification rejected successfully." });
+
+    // Send professional rejection email to the station email
+    if (email) {
+      await sendPasswordResetRejectionEmail(email, stationId, notification.station_name);
+    }
+
+    return res.json({ message: "Notification rejected and notification email sent." });
   } catch (error) {
     console.error("rejectPasswordReset Error:", error);
     return res.status(500).json({ message: "Failed to reject request." });
@@ -156,11 +177,34 @@ const getStationsList = async (req, res) => {
 };
 
 const createStation = async (req, res) => {
+  const { stationId, name, location, email } = req.body;
+  if (!stationId || !name || !location || !email) {
+    return res.status(400).json({ message: "Station ID, Name, Location, and Email are required." });
+  }
+
+  // Generate 6-digit numeric password
+  const tempPassword = Math.floor(100000 + Math.random() * 900000).toString();
+
   try {
-    await adminModel.addStation(req.body);
-    return res.json({ message: "Station created successfully." });
+    await adminModel.addStation({
+      ...req.body,
+      password: tempPassword,
+      email: email.trim().toLowerCase(),
+      must_change_password: 1,
+    });
+
+    // Send styled credentials email to the station email
+    await sendStationCredentialsEmail(email.trim().toLowerCase(), stationId, name, tempPassword);
+
+    return res.json({ 
+      message: "Station created and credentials sent to email successfully.",
+      tempPassword,
+    });
   } catch (error) {
     console.error("createStation Error:", error);
+    if (error.code === 'ER_DUP_ENTRY') {
+      return res.status(400).json({ message: "Station ID or email already exists." });
+    }
     return res.status(500).json({ message: "Failed to create station." });
   }
 };

@@ -63,7 +63,10 @@ export default function FuelStationDashboard() {
       });
       if (response.ok) {
         const result = await response.json();
-        setProfileData(result);
+        setProfileData({
+          ...result,
+          phone_number: result.phone_number && result.phone_number.trim() !== "" ? result.phone_number : "-"
+        });
       }
     } catch (error) {
       console.error("Failed to fetch profile:", error);
@@ -148,7 +151,12 @@ export default function FuelStationDashboard() {
   const [fuelTypeFilter, setFuelTypeFilter] = useState("All");
   const [vehicleTypeFilter, setVehicleTypeFilter] = useState("All");
   const [showFilters, setShowFilters] = useState(false);
-  const [visibleTxCount, setVisibleTxCount] = useState(10);
+
+  // Pagination states
+  const [txCurrentPage, setTxCurrentPage] = useState(1);
+  const [txRowsPerPage, setTxRowsPerPage] = useState(10);
+  const [supplyCurrentPage, setSupplyCurrentPage] = useState(1);
+  const [supplyRowsPerPage, setSupplyRowsPerPage] = useState(10);
 
   useEffect(() => {
     if (!token) {
@@ -174,20 +182,28 @@ export default function FuelStationDashboard() {
 
   const isToday = selectedDate === new Date().toISOString().split('T')[0];
 
-  const StatCard = ({ title, value, icon: Icon, color, bg, unit = "L" }) => (
-    <div className="bg-white/5 border border-white/10 p-6 rounded-3xl flex items-center justify-between group hover:bg-white/10 transition-all duration-300">
-      <div>
-        <h3 className="text-gray-400 text-xs font-bold uppercase tracking-widest mb-1">{title}</h3>
-        <p className={`text-3xl font-bold ${color} font-mono flex items-baseline gap-1`}>
-          {parseFloat(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          {unit && <span className="text-[14px] font-medium opacity-60 ml-0.5 tracking-normal">{unit}</span>}
-        </p>
+  const StatCard = ({ title, value, icon: Icon, color, bg, unit = "L", isInteger = false }) => {
+    const isCount = isInteger || unit === "Users" || title.toLowerCase().includes("customer");
+    const num = parseFloat(value) || 0;
+    const formattedValue = isCount
+      ? Math.round(num).toLocaleString()
+      : num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    return (
+      <div className="bg-white/5 border border-white/10 p-6 rounded-3xl flex items-center justify-between group hover:bg-white/10 transition-all duration-300">
+        <div>
+          <h3 className="text-gray-400 text-xs font-bold uppercase tracking-widest mb-1">{title}</h3>
+          <p className={`text-3xl font-bold ${color} font-mono flex items-baseline gap-1`}>
+            {formattedValue}
+            {unit && <span className="text-[14px] font-medium opacity-60 ml-0.5 tracking-normal">{unit}</span>}
+          </p>
+        </div>
+        <div className={`p-4 rounded-2xl ${bg} ${color} shadow-lg shadow-black/20`}>
+          <Icon size={24} />
+        </div>
       </div>
-      <div className={`p-4 rounded-2xl ${bg} ${color} shadow-lg shadow-black/20`}>
-        <Icon size={24} />
-      </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="min-h-screen bg-[#0B1220] text-white p-4 md:p-10 font-sans selection:bg-orange-500/30">
@@ -360,15 +376,8 @@ export default function FuelStationDashboard() {
             </div>
           </div>
 
-          <div 
-            className="overflow-x-auto max-h-[850px] overflow-y-auto low-stock-scrollbar"
-            onScroll={(e) => {
-              const { scrollTop, scrollHeight, clientHeight } = e.target;
-              if (scrollHeight - scrollTop <= clientHeight + 50) {
-                setVisibleTxCount(prev => prev + 10);
-              }
-            }}
-          >
+          {/* Transaction Records Table */}
+          <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead className="sticky top-0 z-10">
                 <tr className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] bg-[#16213A] border-b border-white/10">
@@ -377,84 +386,145 @@ export default function FuelStationDashboard() {
                   <th className="px-8 py-5">Vehicle Category</th>
                   <th className="px-8 py-5">Fuel Type</th>
                   <th className="px-8 py-5 text-right">Fuel Issued</th>
-                  <th className="px-8 py-5">Customer Email</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/[0.05]">
-                {data.transactions
-                  .filter(t => 
+                {(() => {
+                  const filtered = data.transactions.filter(t => 
                     (fuelTypeFilter === "All" || t.fuel_type === fuelTypeFilter) &&
                     (vehicleTypeFilter === "All" || t.vehicle_type?.toLowerCase() === vehicleTypeFilter.toLowerCase()) &&
                     (t.vehicle_number?.toLowerCase().includes(searchTerm.toLowerCase()))
-                  )
-                  .length === 0 ? (
-                  <tr>
-                    <td colSpan="6" className="px-8 py-20 text-center">
-                      <div className="flex flex-col items-center gap-3 opacity-30">
-                        <History size={48} />
-                        <p className="text-lg font-medium italic">
-                          {searchTerm || fuelTypeFilter !== "All" || vehicleTypeFilter !== "All"
-                            ? "No matching transactions found" 
-                            : `No transactions found for the selected date`}
-                        </p>
-                      </div>
-                    </td>
-                  </tr>
-                ) : (
-                  data.transactions
-                    .filter(t => 
-                      (fuelTypeFilter === "All" || t.fuel_type === fuelTypeFilter) &&
-                      (vehicleTypeFilter === "All" || t.vehicle_type?.toLowerCase() === vehicleTypeFilter.toLowerCase()) &&
-                      (t.vehicle_number?.toLowerCase().includes(searchTerm.toLowerCase()))
-                    )
-                    .slice(0, visibleTxCount)
-                    .map((t, i) => (
-                      <tr key={i} className="hover:bg-white/[0.03] transition-colors group">
-                        <td className="px-8 py-5 text-xs text-gray-400 font-mono">
-                          {t.date.split(' ')[1]}
-                        </td>
-                        <td className="px-8 py-5">
-                          <span className="font-black text-white uppercase tracking-wider bg-white/5 px-3 py-1.5 rounded-xl border border-white/10 group-hover:border-orange-500/30 transition-colors">
-                            {t.vehicle_number || "GUEST"}
-                          </span>
-                        </td>
-                        <td className="px-8 py-5 text-sm font-semibold text-gray-300">
-                          <span className="flex items-center gap-2">
-                             <div className="w-1.5 h-1.5 rounded-full bg-gray-600" />
-                             {t.vehicle_type || "N/A"}
-                          </span>
-                        </td>
-                        <td className="px-8 py-5">
-                          <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${
-                            t.fuel_type === 'Petrol' 
-                              ? 'bg-fuchsia-500/10 text-fuchsia-400 border-fuchsia-500/20' 
-                              : 'bg-blue-500/10 text-blue-400 border-blue-500/20'
-                          }`}>
-                            {t.fuel_type}
-                          </span>
-                        </td>
-                        <td className="px-8 py-5 text-right">
-                          <p className="text-xl font-black text-emerald-400 font-mono tracking-tighter">
-                            {t.fuel_amount}<span className="text-[10px] ml-1 opacity-50 uppercase tracking-normal">Liters</span>
-                          </p>
-                        </td>
-                        <td className="px-8 py-5">
-                          <div className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors cursor-default">
-                            <Users size={14} className="opacity-40" />
-                            {t.customer_email}
+                  );
+                  if (filtered.length === 0) {
+                    return (
+                      <tr>
+                        <td colSpan="5" className="px-8 py-20 text-center">
+                          <div className="flex flex-col items-center gap-3 opacity-30">
+                            <History size={48} />
+                            <p className="text-lg font-medium italic">
+                              {searchTerm || fuelTypeFilter !== "All" || vehicleTypeFilter !== "All"
+                                ? "No matching transactions found" 
+                                : `No transactions found for the selected date`}
+                            </p>
                           </div>
                         </td>
                       </tr>
-                    ))
-                )}
+                    );
+                  }
+                  const startIndex = (txCurrentPage - 1) * txRowsPerPage;
+                  return filtered.slice(startIndex, startIndex + txRowsPerPage).map((t, i) => (
+                    <tr key={i} className="hover:bg-white/[0.03] transition-colors group">
+                      <td className="px-8 py-5 text-xs text-gray-400 font-mono">
+                        {t.date.split(' ')[1]}
+                      </td>
+                      <td className="px-8 py-5">
+                        <span className="font-black text-white uppercase tracking-wider bg-white/5 px-3 py-1.5 rounded-xl border border-white/10 group-hover:border-orange-500/30 transition-colors">
+                          {t.vehicle_number || "GUEST"}
+                        </span>
+                      </td>
+                      <td className="px-8 py-5 text-sm font-semibold text-gray-300">
+                        <span className="flex items-center gap-2">
+                           <div className="w-1.5 h-1.5 rounded-full bg-gray-600" />
+                           {t.vehicle_type || "N/A"}
+                        </span>
+                      </td>
+                      <td className="px-8 py-5">
+                        <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${
+                          t.fuel_type === 'Petrol' 
+                            ? 'bg-fuchsia-500/10 text-fuchsia-400 border-fuchsia-500/20' 
+                            : 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                        }`}>
+                          {t.fuel_type}
+                        </span>
+                      </td>
+                      <td className="px-8 py-5 text-right">
+                        <p className="text-xl font-black text-emerald-400 font-mono tracking-tighter">
+                          {t.fuel_amount}<span className="text-[10px] ml-1 opacity-50 uppercase tracking-normal">Liters</span>
+                        </p>
+                      </td>
+                    </tr>
+                  ));
+                })()}
               </tbody>
             </table>
           </div>
           
-          <div className="p-8 bg-white/[0.02] border-t border-white/10 flex justify-between items-center text-[10px] font-bold text-gray-500 uppercase tracking-widest">
-            <p>Displaying {data.transactions.length} records</p>
-            <p>Real-time data sync active</p>
-          </div>
+          {/* Transaction Records Pagination Bar */}
+          {(() => {
+            const filtered = data.transactions.filter(t => 
+              (fuelTypeFilter === "All" || t.fuel_type === fuelTypeFilter) &&
+              (vehicleTypeFilter === "All" || t.vehicle_type?.toLowerCase() === vehicleTypeFilter.toLowerCase()) &&
+              (t.vehicle_number?.toLowerCase().includes(searchTerm.toLowerCase()))
+            );
+            const totalTx = filtered.length;
+            const totalTxPages = Math.ceil(totalTx / txRowsPerPage) || 1;
+            const startIndex = (txCurrentPage - 1) * txRowsPerPage;
+
+            return (
+              <div className="px-8 py-5 bg-white/[0.02] border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm">
+                <div className="flex flex-wrap items-center gap-3 text-gray-400">
+                  <span className="text-xs">Rows per page:</span>
+                  <select
+                    value={txRowsPerPage}
+                    onChange={(e) => {
+                      setTxRowsPerPage(Number(e.target.value));
+                      setTxCurrentPage(1);
+                    }}
+                    className="bg-[#16213A] border border-white/10 rounded-lg px-2.5 py-1 text-white text-xs outline-none focus:border-orange-500 cursor-pointer"
+                  >
+                    <option value={5}>5</option>
+                    <option value={10}>10</option>
+                    <option value={20}>20</option>
+                    <option value={50}>50</option>
+                  </select>
+                  <span className="text-gray-400 text-xs">
+                    Showing {totalTx === 0 ? 0 : startIndex + 1} - {Math.min(startIndex + txRowsPerPage, totalTx)} of {totalTx} records
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setTxCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={txCurrentPage === 1}
+                    className="px-3 py-1.5 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-white disabled:opacity-30 disabled:cursor-not-allowed transition flex items-center gap-1 cursor-pointer text-xs font-semibold"
+                  >
+                    <ChevronLeft size={16} /> Previous
+                  </button>
+                  
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: totalTxPages }, (_, i) => i + 1)
+                      .filter(p => p === 1 || p === totalTxPages || (p >= txCurrentPage - 1 && p <= txCurrentPage + 1))
+                      .map((p, idx, arr) => {
+                        const showEllipsis = idx > 0 && p - arr[idx - 1] > 1;
+                        return (
+                          <React.Fragment key={p}>
+                            {showEllipsis && <span className="px-1 text-gray-500 text-xs">...</span>}
+                            <button
+                              onClick={() => setTxCurrentPage(p)}
+                              className={`w-8 h-8 rounded-lg text-xs font-bold transition cursor-pointer ${
+                                txCurrentPage === p
+                                  ? "bg-orange-500 text-white shadow-lg shadow-orange-500/30"
+                                  : "bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white"
+                              }`}
+                            >
+                              {p}
+                            </button>
+                          </React.Fragment>
+                        );
+                      })}
+                  </div>
+
+                  <button
+                    onClick={() => setTxCurrentPage(p => Math.min(totalTxPages, p + 1))}
+                    disabled={txCurrentPage === totalTxPages || totalTx === 0}
+                    className="px-3 py-1.5 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-white disabled:opacity-30 disabled:cursor-not-allowed transition flex items-center gap-1 cursor-pointer text-xs font-semibold"
+                  >
+                    Next <ChevronRight size={16} />
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
         </div>
 
         {/* Fuel Updates Table Section */}
@@ -471,12 +541,32 @@ export default function FuelStationDashboard() {
             </div>
             
             <button
-              onClick={() => {
+              onClick={async () => {
                 const now = new Date();
                 now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-                const formattedDate = now.toISOString().slice(0,16);
-                const ref = 'SUP-' + Math.floor(Math.random() * 1000000).toString().padStart(6, '0');
-                setSupplyData({ petrolAmount: '', dieselAmount: '', referenceNo: ref, suppliedAt: formattedDate });
+                const formattedDate = now.toISOString().slice(0, 16);
+
+                const year = now.getFullYear();
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+                const day = String(now.getDate()).padStart(2, '0');
+                const dateStr = `${year}${month}${day}`;
+                const stId = profileData.station_id || 'ST';
+                const todayCount = (data.supplies || []).filter(s => s.date && s.date.startsWith(`${year}-${month}-${day}`)).length;
+                let nextRef = `SUP-${stId}-${dateStr}-${String(todayCount + 1).padStart(3, '0')}`;
+
+                try {
+                  const res = await fetch(`${API_BASE_URL}/api/station/next-supply-ref`, {
+                    headers: { "Authorization": `Bearer ${token}` }
+                  });
+                  if (res.ok) {
+                    const resData = await res.json();
+                    if (resData.referenceNo) nextRef = resData.referenceNo;
+                  }
+                } catch (e) {
+                  console.error("Failed to fetch next supply ref:", e);
+                }
+
+                setSupplyData({ petrolAmount: '', dieselAmount: '', referenceNo: nextRef, suppliedAt: formattedDate });
                 setShowAddSupply(true);
               }}
               className="flex items-center gap-2 bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white transition py-2.5 px-6 rounded-xl cursor-pointer font-bold text-sm shadow-xl hover:shadow-orange-500/20 w-full md:w-auto justify-center"
@@ -485,7 +575,7 @@ export default function FuelStationDashboard() {
             </button>
           </div>
 
-          <div className="overflow-x-auto max-h-[500px] overflow-y-auto low-stock-scrollbar">
+          <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead className="sticky top-0 z-10">
                 <tr className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] bg-[#16213A] border-b border-white/10">
@@ -508,36 +598,107 @@ export default function FuelStationDashboard() {
                     </td>
                   </tr>
                 ) : (
-                  data.supplies.map((s, i) => (
-                    <tr key={i} className="hover:bg-white/[0.03] transition-colors group">
-                      <td className="px-8 py-5 text-xs text-gray-400 font-mono">
-                        <span className="font-black text-white uppercase tracking-wider bg-white/5 px-3 py-1.5 rounded-xl border border-white/10 group-hover:border-orange-500/30 transition-colors">
-                          {s.reference_no || `SUP-${String(s.id).padStart(4, '0')}`}
-                        </span>
-                      </td>
-                      <td className="px-8 py-5 text-sm font-bold text-gray-300">
-                        {s.date}
-                      </td>
-                      <td className="px-8 py-5">
-                        <p className="text-lg font-black text-fuchsia-400 font-mono tracking-tighter">
-                          {s.petrol_amount}<span className="text-[10px] ml-1 opacity-50 uppercase tracking-normal">Liters</span>
-                        </p>
-                      </td>
-                      <td className="px-8 py-5">
-                        <p className="text-lg font-black text-blue-400 font-mono tracking-tighter">
-                          {s.diesel_amount}<span className="text-[10px] ml-1 opacity-50 uppercase tracking-normal">Liters</span>
-                        </p>
-                      </td>
-                    </tr>
-                  ))
+                  (() => {
+                    const startIdx = (supplyCurrentPage - 1) * supplyRowsPerPage;
+                    return data.supplies.slice(startIdx, startIdx + supplyRowsPerPage).map((s, i) => (
+                      <tr key={i} className="hover:bg-white/[0.03] transition-colors group">
+                        <td className="px-8 py-5 text-xs text-gray-400 font-mono">
+                          <span className="font-black text-white uppercase tracking-wider bg-white/5 px-3 py-1.5 rounded-xl border border-white/10 group-hover:border-orange-500/30 transition-colors">
+                            {s.reference_no || `SUP-${String(s.id).padStart(4, '0')}`}
+                          </span>
+                        </td>
+                        <td className="px-8 py-5 text-sm font-bold text-gray-300">
+                          {s.date}
+                        </td>
+                        <td className="px-8 py-5">
+                          <p className="text-lg font-black text-fuchsia-400 font-mono tracking-tighter">
+                            {s.petrol_amount}<span className="text-[10px] ml-1 opacity-50 uppercase tracking-normal">Liters</span>
+                          </p>
+                        </td>
+                        <td className="px-8 py-5">
+                          <p className="text-lg font-black text-blue-400 font-mono tracking-tighter">
+                            {s.diesel_amount}<span className="text-[10px] ml-1 opacity-50 uppercase tracking-normal">Liters</span>
+                          </p>
+                        </td>
+                      </tr>
+                    ));
+                  })()
                 )}
               </tbody>
             </table>
           </div>
           
-          <div className="p-8 bg-white/[0.02] border-t border-white/10 flex justify-between items-center text-[10px] font-bold text-gray-500 uppercase tracking-widest">
-            <p>Displaying {data.supplies.length} supply records</p>
-          </div>
+          {/* Fuel Updates Pagination Bar */}
+          {(() => {
+            const totalSupply = data.supplies.length;
+            const totalSupplyPages = Math.ceil(totalSupply / supplyRowsPerPage) || 1;
+            const startIdx = (supplyCurrentPage - 1) * supplyRowsPerPage;
+
+            return (
+              <div className="px-8 py-5 bg-white/[0.02] border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm">
+                <div className="flex flex-wrap items-center gap-3 text-gray-400">
+                  <span className="text-xs">Rows per page:</span>
+                  <select
+                    value={supplyRowsPerPage}
+                    onChange={(e) => {
+                      setSupplyRowsPerPage(Number(e.target.value));
+                      setSupplyCurrentPage(1);
+                    }}
+                    className="bg-[#16213A] border border-white/10 rounded-lg px-2.5 py-1 text-white text-xs outline-none focus:border-orange-500 cursor-pointer"
+                  >
+                    <option value={5}>5</option>
+                    <option value={10}>10</option>
+                    <option value={20}>20</option>
+                    <option value={50}>50</option>
+                  </select>
+                  <span className="text-gray-400 text-xs">
+                    Showing {totalSupply === 0 ? 0 : startIdx + 1} - {Math.min(startIdx + supplyRowsPerPage, totalSupply)} of {totalSupply} supply records
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setSupplyCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={supplyCurrentPage === 1}
+                    className="px-3 py-1.5 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-white disabled:opacity-30 disabled:cursor-not-allowed transition flex items-center gap-1 cursor-pointer text-xs font-semibold"
+                  >
+                    <ChevronLeft size={16} /> Previous
+                  </button>
+                  
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: totalSupplyPages }, (_, i) => i + 1)
+                      .filter(p => p === 1 || p === totalSupplyPages || (p >= supplyCurrentPage - 1 && p <= supplyCurrentPage + 1))
+                      .map((p, idx, arr) => {
+                        const showEllipsis = idx > 0 && p - arr[idx - 1] > 1;
+                        return (
+                          <React.Fragment key={p}>
+                            {showEllipsis && <span className="px-1 text-gray-500 text-xs">...</span>}
+                            <button
+                              onClick={() => setSupplyCurrentPage(p)}
+                              className={`w-8 h-8 rounded-lg text-xs font-bold transition cursor-pointer ${
+                                supplyCurrentPage === p
+                                  ? "bg-orange-500 text-white shadow-lg shadow-orange-500/30"
+                                  : "bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white"
+                              }`}
+                            >
+                              {p}
+                            </button>
+                          </React.Fragment>
+                        );
+                      })}
+                  </div>
+
+                  <button
+                    onClick={() => setSupplyCurrentPage(p => Math.min(totalSupplyPages, p + 1))}
+                    disabled={supplyCurrentPage === totalSupplyPages || totalSupply === 0}
+                    className="px-3 py-1.5 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-white disabled:opacity-30 disabled:cursor-not-allowed transition flex items-center gap-1 cursor-pointer text-xs font-semibold"
+                  >
+                    Next <ChevronRight size={16} />
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       </div>
 
@@ -616,10 +777,19 @@ export default function FuelStationDashboard() {
                     <Phone size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-orange-400" />
                     <input 
                       type="tel" 
-                      value={profileData.phone_number || ""}
-                      onChange={(e) => setProfileData({...profileData, phone_number: e.target.value})}
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl pl-12 pr-4 py-3 text-sm font-bold focus:outline-none focus:border-orange-500/50 transition-all shadow-inner"
-                      placeholder="+94 XX XXX XXXX"
+                      maxLength={10}
+                      value={profileData.phone_number ?? "-"}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        if (raw === "" || raw === "-") {
+                          setProfileData({...profileData, phone_number: raw});
+                        } else {
+                          const onlyNums = raw.replace(/\D/g, "").slice(0, 10);
+                          setProfileData({...profileData, phone_number: onlyNums});
+                        }
+                      }}
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl pl-12 pr-4 py-3 text-sm font-bold focus:outline-none focus:border-orange-500/50 transition-all shadow-inner font-mono"
+                      placeholder="-"
                     />
                   </div>
                 </div>

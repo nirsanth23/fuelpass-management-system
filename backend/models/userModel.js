@@ -137,13 +137,17 @@ const getVehiclesByUserId = (userId) =>
 const getUserWithVehicleAndQuota = (userId, vehicleNumber = null) =>
   new Promise((resolve, reject) => {
     let query = `
-      SELECT u.id, u.email, v.id as vehicle_id, v.vehicle_type, v.fuel_type, v.vehicle_number, v.chassis_no, v.reserved_until,
+      SELECT u.id, u.email, u.nic, u.first_name, u.last_name, u.address, u.phone_number,
+             v.id as vehicle_id, v.vehicle_type, v.fuel_type, v.vehicle_number, v.chassis_no, v.reserved_until,
+             COALESCE(fqr.weekly_limit, 20.00) as weekly_limit,
+             COALESCE(fqr.carry_forward_limit, 5.00) as carry_forward_limit,
              (SELECT SUM(amount) FROM fuel_transactions 
               WHERE vehicle_id = v.id AND created_at >= DATE_SUB(NOW(), INTERVAL (DAYOFWEEK(NOW()) + 4) % 7 DAY)) as used_fuel,
              DATE_SUB(NOW(), INTERVAL (DAYOFWEEK(NOW()) + 4) % 7 DAY) as week_start,
              DATE_ADD(DATE_SUB(NOW(), INTERVAL (DAYOFWEEK(NOW()) + 4) % 7 DAY), INTERVAL 6 DAY) as week_end
       FROM users u
       LEFT JOIN vehicles v ON u.id = v.user_id
+      LEFT JOIN fuel_quota_rules fqr ON LOWER(REPLACE(fqr.vehicle_type, ' ', '')) = LOWER(REPLACE(v.vehicle_type, ' ', ''))
       WHERE u.id = ?
     `;
 
