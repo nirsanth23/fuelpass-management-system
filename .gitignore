@@ -20,6 +20,9 @@ build/
 *.swp
 *.swo
 *~
+# Temporary & Scratch
+tmp/
+scratch/
 .DS_Store
 
 # Logs
