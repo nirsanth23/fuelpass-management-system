@@ -172,6 +172,117 @@ const getNextSupplyReferenceNo = (stationId) => {
   });
 };
 
+const dispenseFuel = ({ stationId, vehicleNumber, fuelType, amount, userId, vehicleId }) => {
+  return new Promise((resolve, reject) => {
+    db.getConnection((err, conn) => {
+      if (err) return reject(err);
+
+      conn.beginTransaction((txErr) => {
+        if (txErr) {
+          conn.release();
+          return reject(txErr);
+        }
+
+        // 1. Lock station stock row for update to prevent concurrent race condition deductions
+        const stockCol = fuelType.toLowerCase() === 'petrol' ? 'petrol_stock' : 'diesel_stock';
+        const lockStationQuery = `SELECT ${stockCol} AS available_stock FROM fuel_stations WHERE station_id = ? FOR UPDATE`;
+
+        conn.query(lockStationQuery, [stationId], (errStation, stationRows) => {
+          if (errStation || !stationRows || stationRows.length === 0) {
+            return conn.rollback(() => {
+              conn.release();
+              reject(errStation || new Error("Station not found"));
+            });
+          }
+
+          const currentStock = parseFloat(stationRows[0].available_stock) || 0;
+          if (currentStock < amount) {
+            return conn.rollback(() => {
+              conn.release();
+              reject(new Error(`Insufficient fuel stock at station. Available: ${currentStock}L, Requested: ${amount}L`));
+            });
+          }
+
+          // 2. Lock vehicle record and check weekly quota usage
+          const quotaQuery = `
+            SELECT v.id AS vehicle_id, v.user_id,
+                   COALESCE(fqr.weekly_limit, 20.00) AS weekly_limit,
+                   COALESCE((
+                     SELECT SUM(amount) FROM fuel_transactions 
+                     WHERE vehicle_id = v.id AND created_at >= DATE_SUB(NOW(), INTERVAL (DAYOFWEEK(NOW()) + 4) % 7 DAY)
+                   ), 0) AS used_quota
+            FROM vehicles v
+            LEFT JOIN fuel_quota_rules fqr ON LOWER(REPLACE(fqr.vehicle_type, ' ', '')) = LOWER(REPLACE(v.vehicle_type, ' ', ''))
+            WHERE v.vehicle_number = ?
+            FOR UPDATE
+          `;
+
+          conn.query(quotaQuery, [vehicleNumber], (errQuota, quotaRows) => {
+            if (errQuota || !quotaRows || quotaRows.length === 0) {
+              return conn.rollback(() => {
+                conn.release();
+                reject(errQuota || new Error("Vehicle not registered in the system"));
+              });
+            }
+
+            const vehicleInfo = quotaRows[0];
+            const remainingQuota = parseFloat(vehicleInfo.weekly_limit) - parseFloat(vehicleInfo.used_quota);
+
+            if (amount > remainingQuota) {
+              return conn.rollback(() => {
+                conn.release();
+                reject(new Error(`Requested amount (${amount}L) exceeds remaining weekly quota (${remainingQuota.toFixed(2)}L)`));
+              });
+            }
+
+            // 3. Atomically deduct station stock
+            const updateStockQuery = `UPDATE fuel_stations SET ${stockCol} = ${stockCol} - ? WHERE station_id = ?`;
+            conn.query(updateStockQuery, [amount, stationId], (errUpdate, _) => {
+              if (errUpdate) {
+                return conn.rollback(() => {
+                  conn.release();
+                  reject(errUpdate);
+                });
+              }
+
+              // 4. Record transaction entry
+              const insertTxQuery = `
+                INSERT INTO fuel_transactions (station_id, vehicle_id, user_id, fuel_type, amount)
+                VALUES (?, ?, ?, ?, ?)
+              `;
+              conn.query(insertTxQuery, [stationId, vehicleInfo.vehicle_id, vehicleInfo.user_id, fuelType, amount], (errTx, txResult) => {
+                if (errTx) {
+                  return conn.rollback(() => {
+                    conn.release();
+                    reject(errTx);
+                  });
+                }
+
+                // 5. Commit atomic transaction
+                conn.commit((commitErr) => {
+                  if (commitErr) {
+                    return conn.rollback(() => {
+                      conn.release();
+                      reject(commitErr);
+                    });
+                  }
+                  conn.release();
+                  resolve({
+                    transactionId: txResult.insertId,
+                    dispensedAmount: amount,
+                    remainingQuota: remainingQuota - amount,
+                    remainingStock: currentStock - amount
+                  });
+                });
+              });
+            });
+          });
+        });
+      });
+    });
+  });
+};
+
 module.exports = {
   findStationById,
   updateStationPassword,
@@ -181,5 +292,6 @@ module.exports = {
   addStationSupply,
   getStationProfile,
   updateStationProfile,
-  getNextSupplyReferenceNo
+  getNextSupplyReferenceNo,
+  dispenseFuel
 };

@@ -1,12 +1,22 @@
 const express = require("express");
 const router = express.Router();
-const { getDashboardData, getProfile, updateProfile, addSupply, getNextReferenceNo } = require("../controllers/stationController");
-const { requireAuth } = require("../middleware/authToken");
+const { 
+  getDashboardData, 
+  getProfile, 
+  updateProfile, 
+  addSupply, 
+  getNextReferenceNo,
+  validateQrPass,
+  dispenseFuel
+} = require("../controllers/stationController");
+const { requireStationAuth } = require("../middleware/authToken");
 
-router.get("/dashboard", requireAuth, getDashboardData);
-router.get("/profile", requireAuth, getProfile);
-router.put("/profile", requireAuth, updateProfile);
-router.post("/supplies", requireAuth, addSupply);
-router.get("/next-supply-ref", requireAuth, getNextReferenceNo);
+router.get("/dashboard", requireStationAuth, getDashboardData);
+router.get("/profile", requireStationAuth, getProfile);
+router.put("/profile", requireStationAuth, updateProfile);
+router.post("/supplies", requireStationAuth, addSupply);
+router.get("/next-supply-ref", requireStationAuth, getNextReferenceNo);
+router.post("/validate-qr", requireStationAuth, validateQrPass);
+router.post("/dispense", requireStationAuth, dispenseFuel);
 
 module.exports = router;

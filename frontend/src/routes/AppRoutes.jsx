@@ -1,6 +1,6 @@
 import React from "react";
 import { Routes, Route } from "react-router-dom";
-import RoleSelection from "../pages/RoleSelection";
+import LandingPage from "../pages/LandingPage";
 import UserLogin from "../pages/user/UserLogin";
 import UserRegister from "../pages/user/UserRegister";
 import UserDashboard from "../pages/user/UserDashboard";
@@ -22,7 +22,7 @@ import MonthlyReportGenerator from "../pages/admin/MonthlyReportGenerator";
 export default function AppRoutes() {
   return (
     <Routes>
-      <Route path="/" element={<RoleSelection />} />
+      <Route path="/" element={<LandingPage />} />
       <Route path="/user/login" element={<UserLogin />} />
       <Route path="/user/register" element={<UserRegister />} />
       <Route path="/user/dashboard" element={<UserDashboard />} />

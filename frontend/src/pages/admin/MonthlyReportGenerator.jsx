@@ -24,10 +24,13 @@ export async function generateMonthlyReportPDF() {
   };
 
   try {
+    const token = localStorage.getItem("admin_token");
+    const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
+
     const [statsResp, stationsResp, analyticsResp] = await Promise.all([
-      fetch(`${API_BASE_URL}/api/admin/stats`),
-      fetch(`${API_BASE_URL}/api/admin/stations`),
-      fetch(`${API_BASE_URL}/api/admin/analytics`),
+      fetch(`${API_BASE_URL}/api/admin/stats`, { headers: authHeaders }),
+      fetch(`${API_BASE_URL}/api/admin/stations`, { headers: authHeaders }),
+      fetch(`${API_BASE_URL}/api/admin/analytics`, { headers: authHeaders }),
     ]);
 
     const stats = statsResp.ok ? await statsResp.json() : {};

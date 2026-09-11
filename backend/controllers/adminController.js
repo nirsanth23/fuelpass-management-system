@@ -1,3 +1,37 @@
+const jwt = require("jsonwebtoken");
+const adminModel = require("../models/adminModel");
+const { sendPasswordEmail, sendPasswordResetRejectionEmail, sendStationCredentialsEmail } = require("../utils/sendEmail");
+const { hashPassword } = require("../utils/passwordHelper");
+
+/**
+ * Authenticates System Administrator and issues an Admin JWT token
+ */
+const adminLogin = async (req, res) => {
+  const { username, password } = req.body;
+
+  const configuredAdminUser = process.env.ADMIN_USER || "admin";
+  const configuredAdminPass = process.env.ADMIN_PASS || "admin123";
+
+  if (!username || !password) {
+    return res.status(400).json({ message: "Username and password are required." });
+  }
+
+  if (username.trim() === configuredAdminUser && password.trim() === configuredAdminPass) {
+    const token = jwt.sign(
+      { userId: "admin", username: configuredAdminUser, role: "admin" },
+      process.env.JWT_SECRET,
+      { expiresIn: "24h" }
+    );
+    return res.json({ 
+      message: "Admin authentication successful", 
+      token,
+      user: { username: configuredAdminUser, role: "admin" }
+    });
+  }
+
+  return res.status(401).json({ message: "Invalid administrator credentials" });
+};
+
 const deleteStation = async (req, res) => {
   const { stationId } = req.params;
   try {
@@ -8,8 +42,6 @@ const deleteStation = async (req, res) => {
     return res.status(500).json({ message: "Failed to delete station." });
   }
 };
-const adminModel = require("../models/adminModel");
-const { sendPasswordEmail, sendPasswordResetRejectionEmail, sendStationCredentialsEmail } = require("../utils/sendEmail");
 
 const submitForgotPassword = async (req, res) => {
   const { stationUsername, email, phoneNumber } = req.body;
@@ -44,7 +76,7 @@ const approvePasswordReset = async (req, res) => {
     return res.status(400).json({ message: "Notification ID and Email are required." });
   }
 
-  // 6-digit numeric temporary password
+  // Generate 6-digit numeric temporary password
   const newPassword = Math.floor(100000 + Math.random() * 900000).toString();
 
   try {
@@ -55,12 +87,13 @@ const approvePasswordReset = async (req, res) => {
 
     const stationId = notification.station_username;
 
-    // Send approved 6-digit password email
+    // Send plaintext password in approved email to the station operator
     await sendPasswordEmail(email, newPassword, stationId, notification.station_name);
     
-    // Update station password and set must_change_password = 1 in database
+    // Hash temporary password with bcrypt before updating in database
+    const hashedPassword = await hashPassword(newPassword);
     const { updateStationPassword } = require("../models/stationModel");
-    await updateStationPassword(stationId, newPassword);
+    await updateStationPassword(stationId, hashedPassword);
 
     const db = require("../config/db");
     await new Promise((resolve, reject) => {
@@ -72,21 +105,21 @@ const approvePasswordReset = async (req, res) => {
     
     await adminModel.markNotificationResolved(id);
 
-    return res.json({ message: "6-digit temporary password sent and notification approved.", newPassword });
+    return res.json({ message: "6-digit temporary password sent and notification approved." });
   } catch (error) {
     console.error("approvePasswordReset Error:", error);
     if (error.code === "EAUTH") {
       return res.status(500).json({ message: "Admin Email Authentication Failed. Please check .env." });
     }
-    return res.status(500).json({ message: "Failed to approve request." });
+    return res.status(500).json({ message: "Failed to approve password reset." });
   }
 };
 
 const rejectPasswordReset = async (req, res) => {
-  const { id } = req.body;
+  const { id, email, reason } = req.body;
 
-  if (!id) {
-    return res.status(400).json({ message: "Notification ID is required." });
+  if (!id || !email) {
+    return res.status(400).json({ message: "Notification ID and Email are required." });
   }
 
   try {
@@ -94,32 +127,26 @@ const rejectPasswordReset = async (req, res) => {
     if (!notification) {
       return res.status(404).json({ message: "Notification not found." });
     }
-    
+
     const stationId = notification.station_username;
-    const email = notification.email;
 
-    // Mark as rejected
-    await adminModel.markNotificationRejected(id);
+    await sendPasswordResetRejectionEmail(email, stationId, notification.station_name);
+    await adminModel.markNotificationRejected(id, reason || "Unauthorized station verification details");
 
-    // Send professional rejection email to the station email
-    if (email) {
-      await sendPasswordResetRejectionEmail(email, stationId, notification.station_name);
-    }
-
-    return res.json({ message: "Notification rejected and notification email sent." });
+    return res.json({ message: "Password reset request rejected and notification sent." });
   } catch (error) {
     console.error("rejectPasswordReset Error:", error);
-    return res.status(500).json({ message: "Failed to reject request." });
+    return res.status(500).json({ message: "Failed to reject password reset." });
   }
 };
 
 const getDashboardSummary = async (req, res) => {
   try {
-    const stats = await adminModel.getDashboardStats();
-    return res.json(stats);
+    const summary = await adminModel.getDashboardStats();
+    return res.json(summary);
   } catch (error) {
     console.error("getDashboardSummary Error:", error);
-    return res.status(500).json({ message: "Failed to fetch dashboard stats." });
+    return res.status(500).json({ message: "Failed to fetch dashboard summary." });
   }
 };
 
@@ -186,19 +213,21 @@ const createStation = async (req, res) => {
   const tempPassword = Math.floor(100000 + Math.random() * 900000).toString();
 
   try {
+    // Hash with bcrypt before storing in database
+    const hashedPassword = await hashPassword(tempPassword);
+
     await adminModel.addStation({
       ...req.body,
-      password: tempPassword,
+      password: hashedPassword,
       email: email.trim().toLowerCase(),
       must_change_password: 1,
     });
 
-    // Send styled credentials email to the station email
+    // Send styled credentials email with the plain temporary password to the station email
     await sendStationCredentialsEmail(email.trim().toLowerCase(), stationId, name, tempPassword);
 
     return res.json({ 
       message: "Station created and credentials sent to email successfully.",
-      tempPassword,
     });
   } catch (error) {
     console.error("createStation Error:", error);
@@ -265,6 +294,7 @@ const getAnalytics = async (req, res) => {
 };
 
 module.exports = {
+  adminLogin,
   submitForgotPassword,
   getNotifications,
   approvePasswordReset,
@@ -279,6 +309,6 @@ module.exports = {
   updateStationStatus,
   updateStationDetails,
   getStationSupplyHistory,
-  getAnalytics
-  ,deleteStation
+  getAnalytics,
+  deleteStation
 };

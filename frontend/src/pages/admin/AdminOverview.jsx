@@ -49,10 +49,13 @@ export default function AdminOverview() {
 
   const fetchData = async () => {
     try {
+      const token = localStorage.getItem("admin_token");
+      const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
+
       const [notifsResp, statsResp, analyticsResp] = await Promise.all([
-        fetch(`${API_BASE_URL}/api/admin/notifications`),
-        fetch(`${API_BASE_URL}/api/admin/stats`),
-        fetch(`${API_BASE_URL}/api/admin/analytics`)
+        fetch(`${API_BASE_URL}/api/admin/notifications`, { headers: authHeaders }),
+        fetch(`${API_BASE_URL}/api/admin/stats`, { headers: authHeaders }),
+        fetch(`${API_BASE_URL}/api/admin/analytics`, { headers: authHeaders })
       ]);
 
       if (notifsResp.ok) {
@@ -84,9 +87,13 @@ export default function AdminOverview() {
   const handleApprove = async (notification) => {
     setLoadingId(notification.id);
     try {
+      const token = localStorage.getItem("admin_token");
       const response = await fetch(`${API_BASE_URL}/api/admin/send-station-password`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
         body: JSON.stringify({ id: notification.id, email: notification.email }),
       });
       if (response.ok) {
@@ -108,9 +115,13 @@ export default function AdminOverview() {
   const handleReject = async (notification) => {
     setLoadingId(notification.id);
     try {
+      const token = localStorage.getItem("admin_token");
       const response = await fetch(`${API_BASE_URL}/api/admin/reject-station-password`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
         body: JSON.stringify({ id: notification.id }),
       });
       if (response.ok) {

@@ -1,3 +1,5 @@
+const db = require('../config/db');
+
 const deleteStation = (stationId) => {
   return new Promise((resolve, reject) => {
     const query = 'DELETE FROM fuel_stations WHERE station_id = ?';
@@ -7,7 +9,6 @@ const deleteStation = (stationId) => {
     });
   });
 };
-const db = require('../config/db');
 
 const createNotification = (type, stationUsername, email, phoneNumber) => {
   return new Promise((resolve, reject) => {
@@ -230,6 +231,7 @@ module.exports = {
   markNotificationRejected,
   getNotificationById,
   getDashboardStats,
+  getSummary: getDashboardStats,
   getQuotaRules,
   updateQuotaRule,
   addQuotaRule,

@@ -79,7 +79,8 @@ export default function UserDashboard() {
     if (!userData || !userData.vehicle_number || isGeneratingPdf) return;
     setIsGeneratingPdf(true);
     try {
-      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=350x350&data=${encodeURIComponent(userData.vehicle_number)}`;
+      const qrData = userData.qrPayload || userData.vehicle_number;
+      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=350x350&data=${encodeURIComponent(qrData)}`;
       const qrBase64 = await getBase64ImageFromUrl(qrUrl);
 
       const ownerName = [userData.first_name, userData.last_name].filter(Boolean).join(" ") || "N/A";
@@ -565,7 +566,7 @@ export default function UserDashboard() {
                   {userData.vehicle_number}
                 </p>
                 <img
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${userData.vehicle_number}`}
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(userData.qrPayload || userData.vehicle_number)}`}
                   alt="QR Pass"
                   className="w-full aspect-square rounded-xl"
                 />
