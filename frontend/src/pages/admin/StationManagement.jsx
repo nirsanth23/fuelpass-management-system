@@ -16,7 +16,10 @@ export default function StationManagement() {
 
   const fetchStations = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/admin/stations`);
+      const token = localStorage.getItem("admin_token");
+      const response = await fetch(`${API_BASE_URL}/api/admin/stations`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      });
       const data = await response.json();
       if (response.ok) setStations(data);
     } catch (err) { console.error("Failed to fetch stations", err); }
@@ -39,9 +42,13 @@ export default function StationManagement() {
     e.preventDefault();
     setIsSubmitting(true);
     try {
+      const token = localStorage.getItem("admin_token");
       const response = await fetch(`${API_BASE_URL}/api/admin/stations`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
         body: JSON.stringify(formData),
       });
       const resData = await response.json();
@@ -68,9 +75,13 @@ export default function StationManagement() {
   const handleEditStation = async (e) => {
     e.preventDefault();
     try {
+      const token = localStorage.getItem("admin_token");
       const response = await fetch(`${API_BASE_URL}/api/admin/stations/${editingStation.station_id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
         body: JSON.stringify({ name: formData.name, location: formData.location }),
       });
       if (response.ok) {
@@ -85,9 +96,13 @@ export default function StationManagement() {
   const toggleStatus = async (stationId, currentStatus, stationName) => {
     const newStatus = currentStatus === 'Active' ? 'Inactive' : 'Active';
     try {
+      const token = localStorage.getItem("admin_token");
       const response = await fetch(`${API_BASE_URL}/api/admin/stations/${stationId}/status`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
         body: JSON.stringify({ status: newStatus }),
       });
       if (response.ok) {
@@ -104,9 +119,13 @@ export default function StationManagement() {
     if (!editingStation) return;
     setDeleting(true);
     try {
+      const token = localStorage.getItem("admin_token");
       const response = await fetch(`${API_BASE_URL}/api/admin/stations/${editingStation.station_id}`, {
         method: "DELETE",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
       });
       if (response.ok) {
         setToast({ type: 'success', title: 'Deleted', message: `${editingStation.name || editingStation.station_id} deleted successfully.` });

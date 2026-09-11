@@ -27,7 +27,10 @@ export default function StationSupply() {
 
   const fetchStations = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/admin/stations`);
+      const token = localStorage.getItem("admin_token");
+      const response = await fetch(`${API_BASE_URL}/api/admin/stations`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      });
       const data = await response.json();
       if (response.ok) setStations(data);
     } catch (err) { console.error("Failed to fetch stations", err); }
@@ -36,7 +39,10 @@ export default function StationSupply() {
   const fetchHistory = async (stationId) => {
     setLoadingHistory(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/admin/stations/${stationId}/history`);
+      const token = localStorage.getItem("admin_token");
+      const response = await fetch(`${API_BASE_URL}/api/admin/stations/${stationId}/history`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      });
       if (response.ok) {
         const data = await response.json();
         setSupplyHistory(data || []);
@@ -75,9 +81,13 @@ export default function StationSupply() {
   const handleUpdateSupply = async (e) => {
     e.preventDefault();
     try {
+      const token = localStorage.getItem("admin_token");
       const response = await fetch(`${API_BASE_URL}/api/admin/stations/${editingStation.station_id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
         body: JSON.stringify(formData),
       });
       if (response.ok) {

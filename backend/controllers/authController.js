@@ -3,10 +3,13 @@ const jwt = require("jsonwebtoken");
 const {
   deleteOtpsByEmail,
   createOtp,
-  findValidOtp,
+  findLatestActiveOtpByEmail,
+  incrementFailedAttempts,
   deleteOtpById,
 } = require("../models/otpModel");
 const { findOrCreateUserByEmail, getUserWithVehicleAndQuota } = require("../models/userModel");
+const { hashPassword, comparePassword } = require("../utils/passwordHelper");
+const { signFuelPass } = require("../utils/qrCrypto");
 
 const getDbErrorMessage = (error) => {
   if (!error || !error.code) {
@@ -71,17 +74,41 @@ const verifyOtp = async (req, res) => {
   const normalizedEmail = email.trim().toLowerCase();
 
   try {
-    const otpRow = await findValidOtp(normalizedEmail, otp);
+    const activeOtp = await findLatestActiveOtpByEmail(normalizedEmail);
 
-    if (!otpRow) {
-      return res.status(400).json({ message: "Invalid or expired OTP" });
+    if (!activeOtp) {
+      return res.status(400).json({ message: "Invalid or expired OTP. Please request a new OTP." });
     }
 
-    await deleteOtpById(otpRow.id);
+    // Security Defense: 3-Attempt Lockout
+    if (activeOtp.failed_attempts >= 3) {
+      return res.status(429).json({
+        message: "Too many incorrect attempts. This OTP has been locked for security. Please request a new OTP.",
+      });
+    }
+
+    // Check if OTP matches
+    if (activeOtp.otp !== String(otp).trim()) {
+      await incrementFailedAttempts(activeOtp.id);
+      const remainingAttempts = 3 - (activeOtp.failed_attempts + 1);
+
+      if (remainingAttempts <= 0) {
+        return res.status(400).json({
+          message: "Incorrect OTP. Maximum attempts exceeded (3/3). This OTP has been locked. Please request a new OTP.",
+        });
+      }
+
+      return res.status(400).json({
+        message: `Incorrect OTP. You have ${remainingAttempts} attempt(s) remaining.`,
+      });
+    }
+
+    // Correct OTP: delete to prevent reuse
+    await deleteOtpById(activeOtp.id);
     const user = await findOrCreateUserByEmail(normalizedEmail);
 
     const token = jwt.sign(
-      { userId: user.id, email: user.email },
+      { userId: user.id, email: user.email, role: "citizen" },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
@@ -93,6 +120,7 @@ const verifyOtp = async (req, res) => {
       user,
     });
   } catch (error) {
+    console.error("verifyOtp error:", error);
     return res.status(500).json({ message: getDbErrorMessage(error) });
   }
 };
@@ -106,7 +134,27 @@ const getMe = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    return res.json({ user });
+    // Generate cryptographic QR signature if vehicle exists
+    let qrSignature = null;
+    let qrPayload = null;
+    if (user.vehicle_number) {
+      const payloadObj = {
+        v: user.vehicle_number,
+        n: user.nic,
+        t: user.vehicle_type,
+        f: user.fuel_type,
+      };
+      qrSignature = signFuelPass(payloadObj);
+      qrPayload = JSON.stringify({ ...payloadObj, sig: qrSignature });
+    }
+
+    return res.json({ 
+      user: {
+        ...user,
+        qrSignature,
+        qrPayload,
+      } 
+    });
   } catch (error) {
     return res.status(500).json({ message: getDbErrorMessage(error) });
   }
@@ -226,8 +274,19 @@ module.exports = {
     const { stationId, password } = req.body;
     try {
       const station = await require("../models/stationModel").findStationById(stationId);
-      if (!station || station.password !== password) {
+      if (!station) {
         return res.status(401).json({ message: "Invalid station credentials" });
+      }
+
+      const isMatch = await comparePassword(password, station.password);
+      if (!isMatch) {
+        return res.status(401).json({ message: "Invalid station credentials" });
+      }
+
+      // Auto-migrate legacy plaintext password to secure bcrypt hash in DB
+      if (typeof station.password === "string" && !station.password.startsWith("$2")) {
+        const hashed = await hashPassword(password);
+        await require("../models/stationModel").updateStationPassword(station.station_id, hashed);
       }
       
       const token = jwt.sign(
@@ -277,10 +336,11 @@ module.exports = {
     }
 
     try {
+      const hashedPassword = await hashPassword(newPassword);
       const db = require("../config/db");
       await new Promise((resolve, reject) => {
         const query = "UPDATE fuel_stations SET password = ?, must_change_password = 0 WHERE station_id = ?";
-        db.query(query, [newPassword, stationId], (err, results) => {
+        db.query(query, [hashedPassword, stationId], (err, results) => {
           if (err) return reject(err);
           resolve(results);
         });

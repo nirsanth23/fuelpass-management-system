@@ -8,17 +8,36 @@ export default function AdminLogin() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const isLoginValid = username.trim() !== "" && password.trim() !== "";
+  const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5050").replace(/\/$/, "");
+  const isLoginValid = username.trim() !== "" && password.trim() !== "" && !loading;
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
     setError("");
+    setLoading(true);
 
-    if (username === "admin" && password === "admin123") {
-      navigate("/admin/dashboard");
-    } else {
-      setError("Invalid username or password");
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        localStorage.setItem("admin_token", data.token);
+        localStorage.setItem("admin_user", JSON.stringify(data.user));
+        navigate("/admin/dashboard");
+      } else {
+        setError(data.message || "Invalid administrator credentials");
+      }
+    } catch (err) {
+      setError("Network error. Please make sure the backend server is running.");
+    } finally {
+      setLoading(false);
     }
   };
 

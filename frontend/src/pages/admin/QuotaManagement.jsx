@@ -34,9 +34,13 @@ export default function QuotaManagement() {
 
   const updateQuota = async (rule) => {
     try {
+      const token = localStorage.getItem("admin_token");
       const response = await fetch(`${API_BASE_URL}/api/admin/quota-rules`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
         body: JSON.stringify({
           vehicleType: rule.vehicle_type,
           weeklyLimit: rule.weekly_limit,
@@ -53,9 +57,13 @@ export default function QuotaManagement() {
   const handleCreateQuota = async (e) => {
     e.preventDefault();
     try {
+      const token = localStorage.getItem("admin_token");
       const response = await fetch(`${API_BASE_URL}/api/admin/quota-rules`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
         body: JSON.stringify(newVehicleData),
       });
       if (response.ok) {
@@ -69,8 +77,12 @@ export default function QuotaManagement() {
 
   const handleDeleteQuota = async (vehicleType) => {
     try {
+      const token = localStorage.getItem("admin_token");
       const response = await fetch(`${API_BASE_URL}/api/admin/quota-rules/${vehicleType}`, {
         method: "DELETE",
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        }
       });
       if (response.ok) {
         setToast({ type: 'success', title: 'Deleted', message: `${vehicleType} removed from quota rules.` });

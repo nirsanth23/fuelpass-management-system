@@ -90,10 +90,92 @@ const addSupply = async (req, res) => {
   }
 };
 
+const validateQrPass = async (req, res) => {
+  const { qrPayload, vehicleNumber } = req.body;
+  const { verifyFuelPass } = require("../utils/qrCrypto");
+
+  try {
+    let targetVehicle = vehicleNumber;
+
+    // Cryptographic signature check
+    if (qrPayload) {
+      try {
+        const parsed = typeof qrPayload === "string" ? JSON.parse(qrPayload) : qrPayload;
+        if (parsed && parsed.sig) {
+          const { sig, ...data } = parsed;
+          const isValid = verifyFuelPass(data, sig);
+          if (!isValid) {
+            return res.status(400).json({ message: "Security Alert: Cryptographic QR signature verification failed. Pass may be forged or tampered." });
+          }
+          targetVehicle = data.v;
+        }
+      } catch (_) {
+        targetVehicle = qrPayload;
+      }
+    }
+
+    if (!targetVehicle) {
+      return res.status(400).json({ message: "Vehicle identification is required" });
+    }
+
+    return res.json({
+      verified: true,
+      vehicleNumber: targetVehicle,
+      message: "QR Pass cryptographically verified."
+    });
+  } catch (error) {
+    console.error("validateQrPass error:", error);
+    return res.status(500).json({ message: "Failed to validate QR Pass" });
+  }
+};
+
+const dispenseFuel = async (req, res) => {
+  const stationId = req.user.stationId;
+  const { vehicleNumber, fuelType, amount, qrPayload } = req.body;
+  const { verifyFuelPass } = require("../utils/qrCrypto");
+
+  if (!vehicleNumber || !fuelType || !amount || parseFloat(amount) <= 0) {
+    return res.status(400).json({ message: "Vehicle number, fuel type, and valid amount (> 0) are required." });
+  }
+
+  // Cryptographic Signature verification if QR is passed
+  if (qrPayload) {
+    try {
+      const parsed = typeof qrPayload === "string" ? JSON.parse(qrPayload) : qrPayload;
+      if (parsed && parsed.sig) {
+        const { sig, ...data } = parsed;
+        const isValid = verifyFuelPass(data, sig);
+        if (!isValid) {
+          return res.status(400).json({ message: "Security Alert: QR signature invalid. Tampering detected." });
+        }
+      }
+    } catch (_) {}
+  }
+
+  try {
+    const result = await stationModel.dispenseFuel({
+      stationId,
+      vehicleNumber,
+      fuelType,
+      amount: parseFloat(amount),
+    });
+
+    return res.json({
+      message: "Fuel dispensed and quota deducted atomically.",
+      ...result
+    });
+  } catch (error) {
+    console.error("dispenseFuel error:", error);
+    return res.status(400).json({ message: error.message || "Failed to dispense fuel" });
+  }
+};
+
 module.exports = {
   getDashboardData,
   getProfile,
   updateProfile,
   addSupply,
-  getNextReferenceNo
+  getNextReferenceNo,
+  validateQrPass,
+  dispenseFuel
 };

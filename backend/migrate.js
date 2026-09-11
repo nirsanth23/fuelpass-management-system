@@ -122,6 +122,7 @@ async function migrate() {
     await addColumnIfNotExists('fuel_stations', 'phone_number', "VARCHAR(20) DEFAULT '-'");
     await addColumnIfNotExists('fuel_stations', 'email', "VARCHAR(100) DEFAULT 'station@fuelpass.lk'");
     await addColumnIfNotExists('fuel_stations', 'must_change_password', 'TINYINT(1) DEFAULT 0');
+    await addColumnIfNotExists('user_otps', 'failed_attempts', 'INT DEFAULT 0');
     console.log("Fuel stations table columns checked/added.");
 
     const createFuelQuotaRulesTable = `

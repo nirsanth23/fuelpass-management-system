@@ -7,12 +7,13 @@ const {
   validateRegisterInput,
 } = require("../middleware/validateAuthInput");
 const { requireAuth } = require("../middleware/authToken");
+const { otpRateLimiter, loginRateLimiter } = require("../middleware/rateLimiter");
 
-router.post("/send-otp", validateSendOtpInput, sendOtp);
+router.post("/send-otp", otpRateLimiter, validateSendOtpInput, sendOtp);
 router.post("/verify-otp", validateVerifyOtpInput, verifyOtp);
 router.post("/check-nic", checkNic);
 router.post("/register", validateRegisterInput, register);
-router.post("/station-login", stationLogin);
+router.post("/station-login", loginRateLimiter, stationLogin);
 router.post("/change-station-password", requireAuth, changeStationPassword);
 router.put("/vehicle", requireAuth, updateVehicle);
 router.post("/reserve-fuel", requireAuth, reserveFuel);
