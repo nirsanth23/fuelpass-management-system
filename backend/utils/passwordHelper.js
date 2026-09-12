@@ -36,7 +36,7 @@ const comparePassword = async (plainPassword, storedPassword) => {
 
   // Backward compatibility: Legacy plaintext password comparison
   const isMatch = plainStr === storedStr;
-  return { isMatch, needsRehash: isMatch }; // if it matched as plaintext, it should be rehashed to bcrypt
+  return { isMatch, needsRehash: isMatch };
 };
 
 module.exports = {

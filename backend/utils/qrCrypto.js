@@ -1,6 +1,6 @@
 const crypto = require("crypto");
 
-const SECRET_KEY = process.env.QR_SECRET || process.env.JWT_SECRET || "fuelpass_default_secret_key_2026";
+const getSecret = () => process.env.QR_SECRET || process.env.JWT_SECRET || "fuelpass_default_secret_key_2026";
 
 /**
  * Signs a vehicle fuel pass payload using HMAC-SHA256.
@@ -9,7 +9,7 @@ const SECRET_KEY = process.env.QR_SECRET || process.env.JWT_SECRET || "fuelpass_
  */
 const signFuelPass = (payload) => {
   const dataString = typeof payload === "object" ? JSON.stringify(payload) : String(payload);
-  return crypto.createHmac("sha256", SECRET_KEY).update(dataString).digest("hex");
+  return crypto.createHmac("sha256", getSecret()).update(dataString).digest("hex");
 };
 
 /**

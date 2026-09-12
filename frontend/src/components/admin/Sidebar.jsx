@@ -1,7 +1,7 @@
 import React from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { 
-  LogOut, Fuel, Activity, Settings, MapPin, TrendingUp 
+  LogOut, Fuel, Activity, Settings, MapPin 
 } from "lucide-react";
 
 const Sidebar = () => {
@@ -45,7 +45,11 @@ const Sidebar = () => {
 
       <div className="mt-auto pt-6 border-t border-white/10">
         <button
-          onClick={() => navigate("/admin/login", { replace: true })}
+          onClick={() => {
+            localStorage.removeItem("admin_token");
+            localStorage.removeItem("admin_user");
+            navigate("/admin/login", { replace: true });
+          }}
           className="w-full flex items-center gap-3 px-4 py-3 text-red-400 hover:bg-red-500/10 rounded-xl transition cursor-pointer"
         >
           <LogOut size={20} />

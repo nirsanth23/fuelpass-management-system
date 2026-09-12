@@ -75,23 +75,82 @@ What started as a simple solution to a personal problem later evolved into a com
 ```text
 fuelpass-management-system/
 ├── backend/
-│   ├── config/             # MySQL database connection & pool configuration
-│   ├── controllers/        # Auth, User, Station, and Admin controllers
-│   ├── middleware/         # JWT verification & request input validation
+│   ├── config/             # MySQL database connection pool & Cloud SSL config
+│   ├── controllers/        # Auth, User, Station, and Admin business logic
+│   ├── middleware/         # JWT RBAC verification, Rate limiting & Input validation
 │   ├── models/             # Database queries & SQL data models
-│   ├── routes/             # Express API endpoints
-│   ├── utils/              # Email templates & notification utilities
+│   ├── routes/             # Express API endpoints (/api/auth, /api/admin, /api/station)
+│   ├── tests/              # Full Automated Test Suite (Unit & Integration)
+│   │   ├── unit/           # QR Cryptography, Password Hashing & RBAC unit tests
+│   │   ├── integration/    # API Security, OTP lockout & Station flow tests
+│   │   └── run_all.js      # Master test runner (npm test)
+│   ├── utils/              # Password hashing, HMAC-SHA256 QR Crypto & Email templates
 │   ├── migrate.js          # Automated database schema migration script
-│   └── server.js           # Express application entry point
+│   ├── seed_stations.js    # Fuel stations seeder
+│   └── server.js           # Enterprise Express server & Health check API
 ├── frontend/
+│   ├── public/             # Static assets & SPA _redirects fallback
 │   ├── src/
-│   │   ├── components/     # Reusable UI components & modals
-│   │   ├── pages/          # Admin, Station, and User portal pages
-│   │   ├── routes/         # React Router navigation configuration
+│   │   ├── components/     # Reusable UI components & Admin Sidebar
+│   │   ├── pages/          # Admin, Station, and Citizen portal pages
+│   │   │   ├── admin/      # Admin Overview, Quota, Stations, Supply, Reports
+│   │   │   ├── fuelstation/# Fuel Station Dashboard & Login
+│   │   │   └── user/       # Citizen Dashboard, Register, Login, Vehicles
+│   │   ├── routes/         # React Router v6 navigation configuration
 │   │   └── index.css       # Tailwind CSS tokens & dark theme styling
 │   ├── index.html          # Main HTML root
-│   └── vite.config.js      # Vite configuration
+│   ├── vercel.json         # Vercel SPA routing configuration
+│   └── vite.config.js      # Vite configuration & bundling
+├── DEPLOYMENT_GUIDE.md     # Production Cloud (Vercel/Render) & VPS Deployment Guide
 └── README.md
+```
+
+---
+
+## 🛡️ Enterprise Security Architecture
+
+| Security Feature | Mechanism |
+| :--- | :--- |
+| **Password Protection** | `bcryptjs` with 10 Salt Rounds & Automatic Legacy Plaintext Rehashing |
+| **Access Control (RBAC)** | Role-Based Access Control (`citizen`, `station`, `admin`) via signed JWTs |
+| **Anti-Spam & DoS Defense** | `express-rate-limit` on OTP requests (5/15m) and Login attempts (10/15m) |
+| **Brute-Force Lockout** | OTP 3-Attempt Lockout Defense with HTTP 429 Too Many Requests |
+| **Web Security Headers** | `Helmet` HTTP security headers (`nosniff`, `SAMEORIGIN`, XSS protection) |
+| **Strict CORS Whitelist** | Whitelisted origin validation for production domains & preview URLs |
+| **Cryptographic QR Passes** | Tamper-proof `HMAC-SHA256` signatures preventing counterfeit fuel passes |
+| **Race Condition Defense** | MySQL ACID Transactions with `SELECT ... FOR UPDATE` row-level locks |
+
+---
+
+## 🧪 Testing & Verification
+
+Run the full automated test suite (34 unit & integration assertions):
+
+```bash
+cd backend
+npm test
+```
+
+---
+
+## 🚀 Quick Start
+
+### 1. Backend Setup
+```bash
+cd backend
+npm install
+cp .env.example .env
+npm run migrate
+npm run seed
+npm run dev
+```
+
+### 2. Frontend Setup
+```bash
+cd frontend
+npm install
+cp .env.example .env
+npm run dev
 ```
 
 ---
