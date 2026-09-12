@@ -278,13 +278,14 @@ module.exports = {
         return res.status(401).json({ message: "Invalid station credentials" });
       }
 
-      const isMatch = await comparePassword(password, station.password);
+      const matchResult = await comparePassword(password, station.password);
+      const isMatch = typeof matchResult === "object" ? matchResult.isMatch : Boolean(matchResult);
       if (!isMatch) {
         return res.status(401).json({ message: "Invalid station credentials" });
       }
 
       // Auto-migrate legacy plaintext password to secure bcrypt hash in DB
-      if (typeof station.password === "string" && !station.password.startsWith("$2")) {
+      if (matchResult.needsRehash || (typeof station.password === "string" && !station.password.startsWith("$2"))) {
         const hashed = await hashPassword(password);
         await require("../models/stationModel").updateStationPassword(station.station_id, hashed);
       }
