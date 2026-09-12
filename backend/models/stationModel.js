@@ -1,8 +1,19 @@
-const db = require('../config/db');
+/**
+ * @file stationModel.js
+ * @description Data access layer and ACID transactional operations for fuel stations, stock management, and dispensing.
+ * @module models/stationModel
+ */
 
+const db = require("../config/db");
+
+/**
+ * Retrieve station record by station unique identifier.
+ * @param {string} stationId - Unique station identifier (e.g. ST001).
+ * @returns {Promise<object|null>} Station record.
+ */
 const findStationById = (stationId) => {
   return new Promise((resolve, reject) => {
-    const query = 'SELECT * FROM fuel_stations WHERE station_id = ?';
+    const query = "SELECT * FROM fuel_stations WHERE station_id = ?";
     db.query(query, [stationId], (err, results) => {
       if (err) return reject(err);
       resolve(results[0]);
@@ -10,9 +21,15 @@ const findStationById = (stationId) => {
   });
 };
 
+/**
+ * Update the hashed password for a station operator.
+ * @param {string} stationId - Station identifier.
+ * @param {string} newPassword - Bcrypt hashed password string.
+ * @returns {Promise<object>} Query execution results.
+ */
 const updateStationPassword = (stationId, newPassword) => {
   return new Promise((resolve, reject) => {
-    const query = 'UPDATE fuel_stations SET password = ? WHERE station_id = ?';
+    const query = "UPDATE fuel_stations SET password = ? WHERE station_id = ?";
     db.query(query, [newPassword, stationId], (err, results) => {
       if (err) return reject(err);
       resolve(results);
@@ -20,6 +37,11 @@ const updateStationPassword = (stationId, newPassword) => {
   });
 };
 
+/**
+ * Fetch real-time dashboard telemetry stats (stock levels, today's issuances, customer count).
+ * @param {string} stationId - Station identifier.
+ * @returns {Promise<{petrol_stock: number, diesel_stock: number, petrol_issued_today: number, diesel_issued_today: number, customers_today: number}>}
+ */
 const getStationDashboardStats = (stationId) => {
   return new Promise((resolve, reject) => {
     const query = `
@@ -41,6 +63,12 @@ const getStationDashboardStats = (stationId) => {
   });
 };
 
+/**
+ * Retrieve transaction history for a station on a given date.
+ * @param {string} stationId - Station identifier.
+ * @param {string} date - Date string in YYYY-MM-DD format.
+ * @returns {Promise<Array<object>>} List of transactions.
+ */
 const getStationTransactions = (stationId, date) => {
   return new Promise((resolve, reject) => {
     const query = `
@@ -64,6 +92,11 @@ const getStationTransactions = (stationId, date) => {
   });
 };
 
+/**
+ * Retrieve supply delivery history for a station.
+ * @param {string} stationId - Station identifier.
+ * @returns {Promise<Array<object>>} List of fuel supply records.
+ */
 const getStationSupplies = (stationId) => {
   return new Promise((resolve, reject) => {
     const query = `
@@ -84,6 +117,15 @@ const getStationSupplies = (stationId) => {
   });
 };
 
+/**
+ * Atomically records fuel supply delivery batch and increases inventory.
+ * @param {string} stationId - Station identifier.
+ * @param {number} petrol - Petrol amount in Liters.
+ * @param {number} diesel - Diesel amount in Liters.
+ * @param {string} referenceNo - Unique delivery reference number.
+ * @param {Date|string} suppliedAt - Delivery timestamp.
+ * @returns {Promise<object>} Insertion results.
+ */
 const addStationSupply = (stationId, petrol, diesel, referenceNo, suppliedAt) => {
   return new Promise((resolve, reject) => {
     db.getConnection((err, conn) => {
@@ -95,7 +137,7 @@ const addStationSupply = (stationId, petrol, diesel, referenceNo, suppliedAt) =>
           return reject(txErr);
         }
 
-        const q1 = 'INSERT INTO fuel_supply_history (station_id, reference_no, petrol_amount, diesel_amount, supplied_at) VALUES (?, ?, ?, ?, ?)';
+        const q1 = "INSERT INTO fuel_supply_history (station_id, reference_no, petrol_amount, diesel_amount, supplied_at) VALUES (?, ?, ?, ?, ?)";
         conn.query(q1, [stationId, referenceNo, petrol, diesel, suppliedAt], (err1, results) => {
           if (err1) {
             return conn.rollback(() => {
@@ -104,8 +146,8 @@ const addStationSupply = (stationId, petrol, diesel, referenceNo, suppliedAt) =>
             });
           }
 
-          const q2 = 'UPDATE fuel_stations SET petrol_stock = petrol_stock + ?, diesel_stock = diesel_stock + ? WHERE station_id = ?';
-          conn.query(q2, [petrol, diesel, stationId], (err2, _) => {
+          const q2 = "UPDATE fuel_stations SET petrol_stock = petrol_stock + ?, diesel_stock = diesel_stock + ? WHERE station_id = ?";
+          conn.query(q2, [petrol, diesel, stationId], (err2) => {
             if (err2) {
               return conn.rollback(() => {
                 conn.release();
@@ -130,9 +172,14 @@ const addStationSupply = (stationId, petrol, diesel, referenceNo, suppliedAt) =>
   });
 };
 
+/**
+ * Retrieve station profile details (name, location, phone, email).
+ * @param {string} stationId - Station identifier.
+ * @returns {Promise<object|null>} Station profile details.
+ */
 const getStationProfile = (stationId) => {
   return new Promise((resolve, reject) => {
-    const query = 'SELECT station_id, name, location, phone_number, email FROM fuel_stations WHERE station_id = ?';
+    const query = "SELECT station_id, name, location, phone_number, email FROM fuel_stations WHERE station_id = ?";
     db.query(query, [stationId], (err, results) => {
       if (err) return reject(err);
       resolve(results[0]);
@@ -140,10 +187,16 @@ const getStationProfile = (stationId) => {
   });
 };
 
+/**
+ * Update station profile details.
+ * @param {string} stationId - Station identifier.
+ * @param {object} profileData - Profile details object.
+ * @returns {Promise<object>} Query execution results.
+ */
 const updateStationProfile = (stationId, profileData) => {
   return new Promise((resolve, reject) => {
     const { name, location, phone_number, email } = profileData;
-    const query = 'UPDATE fuel_stations SET name = ?, location = ?, phone_number = ?, email = ? WHERE station_id = ?';
+    const query = "UPDATE fuel_stations SET name = ?, location = ?, phone_number = ?, email = ? WHERE station_id = ?";
     db.query(query, [name, location, phone_number, email, stationId], (err, results) => {
       if (err) return reject(err);
       resolve(results);
@@ -151,6 +204,11 @@ const updateStationProfile = (stationId, profileData) => {
   });
 };
 
+/**
+ * Generate sequential supply reference number for the current date.
+ * @param {string} stationId - Station identifier.
+ * @returns {Promise<string>} Next reference number (e.g. SUP-ST001-20260912-001).
+ */
 const getNextSupplyReferenceNo = (stationId) => {
   return new Promise((resolve, reject) => {
     const query = `
@@ -163,16 +221,26 @@ const getNextSupplyReferenceNo = (stationId) => {
       const count = (results && results[0]?.count) || 0;
       const now = new Date();
       const year = now.getFullYear();
-      const month = String(now.getMonth() + 1).padStart(2, '0');
-      const day = String(now.getDate()).padStart(2, '0');
+      const month = String(now.getMonth() + 1).padStart(2, "0");
+      const day = String(now.getDate()).padStart(2, "0");
       const dateStr = `${year}${month}${day}`;
-      const seq = String(count + 1).padStart(3, '0');
+      const seq = String(count + 1).padStart(3, "0");
       resolve(`SUP-${stationId}-${dateStr}-${seq}`);
     });
   });
 };
 
-const dispenseFuel = ({ stationId, vehicleNumber, fuelType, amount, userId, vehicleId }) => {
+/**
+ * Atomically dispenses fuel with row locking (FOR UPDATE) across station stock,
+ * verifies remaining weekly quota for the vehicle, deducts inventory, and records transaction.
+ * @param {object} params - Dispense parameters.
+ * @param {string} params.stationId - Station identifier.
+ * @param {string} params.vehicleNumber - Vehicle license plate number.
+ * @param {string} params.fuelType - Petrol or Diesel.
+ * @param {number} params.amount - Amount in liters.
+ * @returns {Promise<{transactionId: number, dispensedAmount: number, remainingQuota: number, remainingStock: number}>}
+ */
+const dispenseFuel = ({ stationId, vehicleNumber, fuelType, amount }) => {
   return new Promise((resolve, reject) => {
     db.getConnection((err, conn) => {
       if (err) return reject(err);
@@ -184,7 +252,7 @@ const dispenseFuel = ({ stationId, vehicleNumber, fuelType, amount, userId, vehi
         }
 
         // 1. Lock station stock row for update to prevent concurrent race condition deductions
-        const stockCol = fuelType.toLowerCase() === 'petrol' ? 'petrol_stock' : 'diesel_stock';
+        const stockCol = fuelType.toLowerCase() === "petrol" ? "petrol_stock" : "diesel_stock";
         const lockStationQuery = `SELECT ${stockCol} AS available_stock FROM fuel_stations WHERE station_id = ? FOR UPDATE`;
 
         conn.query(lockStationQuery, [stationId], (errStation, stationRows) => {
@@ -237,7 +305,7 @@ const dispenseFuel = ({ stationId, vehicleNumber, fuelType, amount, userId, vehi
 
             // 3. Atomically deduct station stock
             const updateStockQuery = `UPDATE fuel_stations SET ${stockCol} = ${stockCol} - ? WHERE station_id = ?`;
-            conn.query(updateStockQuery, [amount, stationId], (errUpdate, _) => {
+            conn.query(updateStockQuery, [amount, stationId], (errUpdate) => {
               if (errUpdate) {
                 return conn.rollback(() => {
                   conn.release();

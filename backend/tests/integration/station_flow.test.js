@@ -126,6 +126,7 @@ async function runStationIntegrationTests() {
   assert.strictEqual(validateTampered.status, 400, "Tampered QR pass must return 400 Bad Request");
 
   console.log("  ✔ All Station Flow Integration Tests Passed (6/6)");
+  process.exit(0);
 }
 
 runStationIntegrationTests().catch((err) => {

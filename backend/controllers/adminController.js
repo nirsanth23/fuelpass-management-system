@@ -1,14 +1,18 @@
 const jwt = require("jsonwebtoken");
 const adminModel = require("../models/adminModel");
+const stationModel = require("../models/stationModel");
 const { sendPasswordEmail, sendPasswordResetRejectionEmail, sendStationCredentialsEmail } = require("../utils/sendEmail");
 const { hashPassword } = require("../utils/passwordHelper");
+const { getDatabaseErrorMessage } = require("../utils/responseHelper");
 
 /**
- * Authenticates System Administrator and issues an Admin JWT token
+ * Authenticates District Administrator and issues an Admin JWT token
+ * @route POST /api/admin/login
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
  */
 const adminLogin = async (req, res) => {
   const { username, password } = req.body;
-
   const configuredAdminUser = process.env.ADMIN_USER || "admin";
   const configuredAdminPass = process.env.ADMIN_PASS || "admin123";
 
@@ -22,16 +26,22 @@ const adminLogin = async (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: "24h" }
     );
-    return res.json({ 
-      message: "Admin authentication successful", 
+    return res.json({
+      message: "Admin authentication successful",
       token,
-      user: { username: configuredAdminUser, role: "admin" }
+      user: { username: configuredAdminUser, role: "admin" },
     });
   }
 
   return res.status(401).json({ message: "Invalid administrator credentials" });
 };
 
+/**
+ * Deletes a fuel station by ID
+ * @route DELETE /api/admin/stations/:stationId
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ */
 const deleteStation = async (req, res) => {
   const { stationId } = req.params;
   try {
@@ -39,13 +49,18 @@ const deleteStation = async (req, res) => {
     return res.json({ message: "Station deleted successfully." });
   } catch (error) {
     console.error("deleteStation Error:", error);
-    return res.status(500).json({ message: "Failed to delete station." });
+    return res.status(500).json({ message: getDatabaseErrorMessage(error) });
   }
 };
 
+/**
+ * Submits a station forgot password reset request
+ * @route POST /api/admin/notifications/forgot-password
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ */
 const submitForgotPassword = async (req, res) => {
   const { stationUsername, email, phoneNumber } = req.body;
-
   if (!stationUsername || !email || !phoneNumber) {
     return res.status(400).json({ message: "All fields are required" });
   }
@@ -55,28 +70,38 @@ const submitForgotPassword = async (req, res) => {
     return res.json({ message: "Password reset request sent to Admin successfully." });
   } catch (error) {
     console.error("submitForgotPassword Error:", error);
-    return res.status(500).json({ message: "Failed to submit request." });
+    return res.status(500).json({ message: getDatabaseErrorMessage(error) });
   }
 };
 
+/**
+ * Retrieves all pending and past admin notifications
+ * @route GET /api/admin/notifications
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ */
 const getNotifications = async (req, res) => {
   try {
     const notifications = await adminModel.getAllNotifications();
     return res.json({ notifications });
   } catch (error) {
     console.error("getNotifications Error:", error);
-    return res.status(500).json({ message: "Failed to fetch notifications." });
+    return res.status(500).json({ message: getDatabaseErrorMessage(error) });
   }
 };
 
+/**
+ * Approves a station password reset, creates a hashed temporary password, and emails the operator
+ * @route POST /api/admin/send-station-password
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ */
 const approvePasswordReset = async (req, res) => {
   const { id, email } = req.body;
-
   if (!id || !email) {
     return res.status(400).json({ message: "Notification ID and Email are required." });
   }
 
-  // Generate 6-digit numeric temporary password
   const newPassword = Math.floor(100000 + Math.random() * 900000).toString();
 
   try {
@@ -86,14 +111,10 @@ const approvePasswordReset = async (req, res) => {
     }
 
     const stationId = notification.station_username;
-
-    // Send plaintext password in approved email to the station operator
     await sendPasswordEmail(email, newPassword, stationId, notification.station_name);
-    
-    // Hash temporary password with bcrypt before updating in database
+
     const hashedPassword = await hashPassword(newPassword);
-    const { updateStationPassword } = require("../models/stationModel");
-    await updateStationPassword(stationId, hashedPassword);
+    await stationModel.updateStationPassword(stationId, hashedPassword);
 
     const db = require("../config/db");
     await new Promise((resolve, reject) => {
@@ -102,22 +123,26 @@ const approvePasswordReset = async (req, res) => {
         resolve(results);
       });
     });
-    
-    await adminModel.markNotificationResolved(id);
 
+    await adminModel.markNotificationResolved(id);
     return res.json({ message: "6-digit temporary password sent and notification approved." });
   } catch (error) {
     console.error("approvePasswordReset Error:", error);
     if (error.code === "EAUTH") {
       return res.status(500).json({ message: "Admin Email Authentication Failed. Please check .env." });
     }
-    return res.status(500).json({ message: "Failed to approve password reset." });
+    return res.status(500).json({ message: getDatabaseErrorMessage(error) });
   }
 };
 
+/**
+ * Rejects a station password reset request and sends explanation email
+ * @route POST /api/admin/reject-station-password
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ */
 const rejectPasswordReset = async (req, res) => {
   const { id, email, reason } = req.body;
-
   if (!id || !email) {
     return res.status(400).json({ message: "Notification ID and Email are required." });
   }
@@ -129,37 +154,54 @@ const rejectPasswordReset = async (req, res) => {
     }
 
     const stationId = notification.station_username;
-
     await sendPasswordResetRejectionEmail(email, stationId, notification.station_name);
     await adminModel.markNotificationRejected(id, reason || "Unauthorized station verification details");
 
     return res.json({ message: "Password reset request rejected and notification sent." });
   } catch (error) {
     console.error("rejectPasswordReset Error:", error);
-    return res.status(500).json({ message: "Failed to reject password reset." });
+    return res.status(500).json({ message: getDatabaseErrorMessage(error) });
   }
 };
 
+/**
+ * Fetches dashboard summary statistics (total stock, active stations, fuel issued today)
+ * @route GET /api/admin/stats
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ */
 const getDashboardSummary = async (req, res) => {
   try {
     const summary = await adminModel.getDashboardStats();
     return res.json(summary);
   } catch (error) {
     console.error("getDashboardSummary Error:", error);
-    return res.status(500).json({ message: "Failed to fetch dashboard summary." });
+    return res.status(500).json({ message: getDatabaseErrorMessage(error) });
   }
 };
 
+/**
+ * Fetches quota rules for all vehicle categories
+ * @route GET /api/admin/quota-rules
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ */
 const getQuotaRules = async (req, res) => {
   try {
     const rules = await adminModel.getQuotaRules();
     return res.json(rules);
   } catch (error) {
     console.error("getQuotaRules Error:", error);
-    return res.status(500).json({ message: "Failed to fetch quota rules." });
+    return res.status(500).json({ message: getDatabaseErrorMessage(error) });
   }
 };
 
+/**
+ * Updates quota rules for a vehicle type
+ * @route PUT /api/admin/quota-rules
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ */
 const updateQuotaRules = async (req, res) => {
   const { vehicleType, weeklyLimit, carryForwardLimit } = req.body;
   try {
@@ -167,10 +209,16 @@ const updateQuotaRules = async (req, res) => {
     return res.json({ message: "Quota rule updated successfully." });
   } catch (error) {
     console.error("updateQuotaRules Error:", error);
-    return res.status(500).json({ message: "Failed to update quota rule." });
+    return res.status(500).json({ message: getDatabaseErrorMessage(error) });
   }
 };
 
+/**
+ * Creates a new quota rule category
+ * @route POST /api/admin/quota-rules
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ */
 const createQuotaRule = async (req, res) => {
   const { vehicleType, weeklyLimit, carryForwardLimit, category } = req.body;
   try {
@@ -178,10 +226,16 @@ const createQuotaRule = async (req, res) => {
     return res.json({ message: "Quota rule created successfully." });
   } catch (error) {
     console.error("createQuotaRule Error:", error);
-    return res.status(500).json({ message: "Failed to create quota rule." });
+    return res.status(500).json({ message: getDatabaseErrorMessage(error) });
   }
 };
 
+/**
+ * Deletes a quota rule by vehicle type
+ * @route DELETE /api/admin/quota-rules/:vehicleType
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ */
 const removeQuotaRule = async (req, res) => {
   const { vehicleType } = req.params;
   try {
@@ -189,33 +243,42 @@ const removeQuotaRule = async (req, res) => {
     return res.json({ message: "Quota rule deleted successfully." });
   } catch (error) {
     console.error("removeQuotaRule Error:", error);
-    return res.status(500).json({ message: "Failed to delete quota rule." });
+    return res.status(500).json({ message: getDatabaseErrorMessage(error) });
   }
 };
 
+/**
+ * Lists all fuel stations
+ * @route GET /api/admin/stations
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ */
 const getStationsList = async (req, res) => {
   try {
     const stations = await adminModel.getStations();
     return res.json(stations);
   } catch (error) {
     console.error("getStationsList Error:", error);
-    return res.status(500).json({ message: "Failed to fetch stations." });
+    return res.status(500).json({ message: getDatabaseErrorMessage(error) });
   }
 };
 
+/**
+ * Provisions a new Fuel Station with bcrypt hashed initial password
+ * @route POST /api/admin/stations
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ */
 const createStation = async (req, res) => {
   const { stationId, name, location, email } = req.body;
   if (!stationId || !name || !location || !email) {
     return res.status(400).json({ message: "Station ID, Name, Location, and Email are required." });
   }
 
-  // Generate 6-digit numeric password
   const tempPassword = Math.floor(100000 + Math.random() * 900000).toString();
 
   try {
-    // Hash with bcrypt before storing in database
     const hashedPassword = await hashPassword(tempPassword);
-
     await adminModel.addStation({
       ...req.body,
       password: hashedPassword,
@@ -223,21 +286,26 @@ const createStation = async (req, res) => {
       must_change_password: 1,
     });
 
-    // Send styled credentials email with the plain temporary password to the station email
     await sendStationCredentialsEmail(email.trim().toLowerCase(), stationId, name, tempPassword);
 
-    return res.json({ 
+    return res.json({
       message: "Station created and credentials sent to email successfully.",
     });
   } catch (error) {
     console.error("createStation Error:", error);
-    if (error.code === 'ER_DUP_ENTRY') {
+    if (error.code === "ER_DUP_ENTRY") {
       return res.status(400).json({ message: "Station ID or email already exists." });
     }
-    return res.status(500).json({ message: "Failed to create station." });
+    return res.status(500).json({ message: getDatabaseErrorMessage(error) });
   }
 };
 
+/**
+ * Updates station operational status (Active/Inactive)
+ * @route PATCH /api/admin/stations/:stationId/status
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ */
 const updateStationStatus = async (req, res) => {
   const { stationId } = req.params;
   const { status } = req.body;
@@ -246,21 +314,26 @@ const updateStationStatus = async (req, res) => {
     return res.json({ message: "Station status updated successfully." });
   } catch (error) {
     console.error("updateStationStatus Error:", error);
-    return res.status(500).json({ message: "Failed to update station status." });
+    return res.status(500).json({ message: getDatabaseErrorMessage(error) });
   }
 };
 
+/**
+ * Updates station profile & logs supply delivery history
+ * @route PUT /api/admin/stations/:stationId
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ */
 const updateStationDetails = async (req, res) => {
   const { stationId } = req.params;
   try {
     const { last_supplied_petrol, last_supplied_diesel } = req.body;
-    
     await adminModel.updateStation(stationId, req.body);
-    
+
     if (last_supplied_petrol !== undefined || last_supplied_diesel !== undefined) {
       await adminModel.recordSupplyHistory(
-        stationId, 
-        last_supplied_petrol || 0, 
+        stationId,
+        last_supplied_petrol || 0,
         last_supplied_diesel || 0
       );
     }
@@ -268,10 +341,16 @@ const updateStationDetails = async (req, res) => {
     return res.json({ message: "Station details updated successfully." });
   } catch (error) {
     console.error("updateStationDetails Error:", error);
-    return res.status(500).json({ message: "Failed to update station details." });
+    return res.status(500).json({ message: getDatabaseErrorMessage(error) });
   }
 };
 
+/**
+ * Retrieves station fuel supply delivery logs
+ * @route GET /api/admin/stations/:stationId/history
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ */
 const getStationSupplyHistory = async (req, res) => {
   const { stationId } = req.params;
   try {
@@ -279,17 +358,23 @@ const getStationSupplyHistory = async (req, res) => {
     return res.json(history);
   } catch (error) {
     console.error("getStationSupplyHistory Error:", error);
-    return res.status(500).json({ message: "Failed to fetch supply history." });
+    return res.status(500).json({ message: getDatabaseErrorMessage(error) });
   }
 };
 
+/**
+ * Aggregates analytical metrics for the District Dashboard
+ * @route GET /api/admin/analytics
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ */
 const getAnalytics = async (req, res) => {
   try {
     const data = await adminModel.getAnalyticsData();
     return res.json(data);
   } catch (error) {
     console.error("getAnalytics Error:", error);
-    return res.status(500).json({ message: "Failed to fetch analytics data." });
+    return res.status(500).json({ message: getDatabaseErrorMessage(error) });
   }
 };
 
@@ -310,5 +395,5 @@ module.exports = {
   updateStationDetails,
   getStationSupplyHistory,
   getAnalytics,
-  deleteStation
+  deleteStation,
 };

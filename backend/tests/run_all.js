@@ -10,6 +10,8 @@ const tests = [
   { name: "Unit Tests: Bcrypt Password Hashing & Rehashing", file: "unit/passwordHelper.test.js" },
   { name: "Unit Tests: RBAC Token Authentication Middleware", file: "unit/authToken.test.js" },
   { name: "Unit Tests: Request Input Validation Middleware", file: "unit/validateAuthInput.test.js" },
+  { name: "Unit Tests: Standard HTTP Response & Error Helpers", file: "unit/responseHelper.test.js" },
+  { name: "Unit Tests: Data Access Model Interface Contracts", file: "unit/models.test.js" },
   { name: "Integration Tests: API, Health, Helmet, RBAC & OTP Lockout", file: "integration/security_api.test.js" },
   { name: "Integration Tests: Fuel Station Flow & QR Verification", file: "integration/station_flow.test.js" },
 ];

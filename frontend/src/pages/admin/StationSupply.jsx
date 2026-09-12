@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { Fuel, Edit, X, Check, Calendar, Droplets, Eye, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { Fuel, Edit, Calendar, Droplets, Eye, Search } from "lucide-react";
+import Modal from "../../components/common/Modal";
+import Toast from "../../components/common/Toast";
+import Pagination from "../../components/common/Pagination";
 
 export default function StationSupply() {
   const [stations, setStations] = useState([]);
@@ -17,7 +20,7 @@ export default function StationSupply() {
   const [formData, setFormData] = useState({ 
     petrol_stock: 0, 
     diesel_stock: 0, 
-    last_supplied_date: '', 
+    last_supplied_date: "", 
     last_supplied_petrol: 0, 
     last_supplied_diesel: 0 
   });
@@ -33,7 +36,9 @@ export default function StationSupply() {
       });
       const data = await response.json();
       if (response.ok) setStations(data);
-    } catch (err) { console.error("Failed to fetch stations", err); }
+    } catch (err) {
+      console.error("Failed to fetch stations", err);
+    }
   };
 
   const fetchHistory = async (stationId) => {
@@ -47,38 +52,18 @@ export default function StationSupply() {
         const data = await response.json();
         setSupplyHistory(data || []);
       }
-    } catch (err) { console.error("Failed to fetch history", err); }
-    finally { setLoadingHistory(false); }
+    } catch (err) {
+      console.error("Failed to fetch history", err);
+    } finally {
+      setLoadingHistory(false);
+    }
   };
 
   useEffect(() => {
     fetchStations();
   }, []);
 
-  useEffect(() => {
-    if (toast) {
-      const timer = setTimeout(() => {
-        setToast(null);
-      }, 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [toast]);
-
-  const filteredStations = stations.filter(s => 
-    s.station_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    s.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm]);
-
-  const totalStations = filteredStations.length;
-  const totalPages = Math.ceil(totalStations / rowsPerPage) || 1;
-  const startIndex = (currentPage - 1) * rowsPerPage;
-  const paginatedStations = filteredStations.slice(startIndex, startIndex + rowsPerPage);
-
-  const handleUpdateSupply = async (e) => {
+  const handleUpdateStock = async (e) => {
     e.preventDefault();
     try {
       const token = localStorage.getItem("admin_token");
@@ -91,366 +76,302 @@ export default function StationSupply() {
         body: JSON.stringify(formData),
       });
       if (response.ok) {
-        setToast({ type: 'success', title: 'Supply Updated', message: `Stock levels for ${editingStation.name || editingStation.station_id} updated.` });
+        setToast({ 
+          type: "success", 
+          title: "Stock & Supply Updated", 
+          message: `Fuel levels updated for ${editingStation.name || editingStation.station_id}.` 
+        });
         setShowEditModal(false);
         setEditingStation(null);
         fetchStations();
       }
-    } catch (err) { console.error("Update failed", err); }
+    } catch (err) {
+      console.error("Update failed", err);
+      setToast({ type: "error", title: "Update Failed", message: "Failed to update station stock." });
+    }
   };
+
+  const filteredStations = stations.filter(s => 
+    (s.station_id && s.station_id.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    (s.name && s.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    (s.location && s.location.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
+
+  const totalFiltered = filteredStations.length;
+  const startIndex = (currentPage - 1) * rowsPerPage;
+  const paginatedStations = filteredStations.slice(startIndex, startIndex + rowsPerPage);
+
+  const totalHistory = supplyHistory.length;
+  const historyStartIdx = (historyCurrentPage - 1) * historyRowsPerPage;
+  const paginatedHistory = supplyHistory.slice(historyStartIdx, historyStartIdx + historyRowsPerPage);
 
   return (
     <div className="p-10">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-6">
-        <h2 className="text-3xl font-bold">Station Fuel Supply</h2>
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-10">
+        <div>
+          <h2 className="text-3xl font-bold text-white">Fuel Stock & Supply Tracking</h2>
+          <p className="text-gray-400 text-sm mt-1">Audit station reserves, dispatch records, and delivery history logs.</p>
+        </div>
         
-        <div className="relative w-full md:w-80">
-          <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-fuchsia-500" />
+        {/* Search Input */}
+        <div className="relative w-full md:w-72">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
           <input 
             type="text" 
-            placeholder="Search by ID or Name..." 
+            placeholder="Search stations..." 
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-white/5 border border-fuchsia-500 rounded-2xl pl-12 pr-4 py-3 focus:outline-none focus:border-fuchsia-500 transition shadow-inner"
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="w-full bg-[#16213A] border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white focus:outline-none focus:border-fuchsia-500 transition"
           />
         </div>
       </div>
 
-      <div className="bg-white/5 border border-white/10 rounded-3xl overflow-hidden shadow-xl animate-in slide-in-from-bottom-5 duration-500 overflow-x-auto">
-        <table className="w-full text-left min-w-[1000px]">
-          <thead>
-            <tr className="bg-white/5 text-gray-400 text-xs uppercase tracking-widest border-b border-white/10">
-              <th className="px-6 py-5">Station</th>
-              <th className="px-6 py-5 text-fuchsia-400">Petrol Stock</th>
-              <th className="px-6 py-5 text-blue-400">Diesel Stock</th>
-              <th className="px-6 py-5">Last Supply</th>
-              <th className="px-6 py-5 text-gray-300">Petrol Supplied</th>
-              <th className="px-6 py-5 text-gray-300">Diesel Supplied</th>
-              <th className="px-6 py-5">Status</th>
-              <th className="px-6 py-5 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-white/10">
-            {paginatedStations.map(s => (
-              <tr key={s.station_id} className="hover:bg-white/5 transition group">
-                <td className="px-6 py-4 min-w-[200px]">
-                  <p className="font-semibold text-white">{s.name}</p>
-                  <p className="text-xs text-gray-500 font-mono">{s.station_id}</p>
-                </td>
-                <td className="px-6 py-4 font-mono text-fuchsia-300 text-sm">{s.petrol_stock}<span className="text-[10px] opacity-50 ml-0.5">L</span></td>
-                <td className="px-6 py-4 font-mono text-blue-300 text-sm">{s.diesel_stock}<span className="text-[10px] opacity-50 ml-0.5">L</span></td>
-                <td className="px-6 py-4 text-xs text-gray-400">
-                  {s.last_supplied_date ? new Date(s.last_supplied_date).toLocaleDateString() : 'N/A'}
-                </td>
-                <td className="px-6 py-4 font-mono text-fuchsia-200/50 text-xs">{s.last_supplied_petrol || 0}<span className="text-[8px] opacity-50 ml-0.5">L</span></td>
-                <td className="px-6 py-4 font-mono text-blue-200/50 text-xs">{s.last_supplied_diesel || 0}<span className="text-[8px] opacity-50 ml-0.5">L</span></td>
-                <td className="px-6 py-4">
-                  <div className="flex items-center gap-2">
-                    <span className={`h-1.5 w-1.5 rounded-full ${s.status === 'Active' ? 'bg-emerald-500' : 'bg-red-500'}`}></span>
-                    <span className="text-[10px] font-bold uppercase tracking-widest opacity-70">{s.status}</span>
-                  </div>
-                </td>
-                <td className="px-6 py-4 text-right flex justify-end gap-1">
-                  <button 
-                    onClick={() => {
-                        setHistoryStation(s);
-                        setHistoryCurrentPage(1);
-                        fetchHistory(s.station_id);
-                        setShowHistoryModal(true);
-                    }}
-                    className="p-2 text-fuchsia-400 hover:bg-fuchsia-500/10 rounded-lg transition cursor-pointer"
-                  >
-                    <Eye size={18} />
-                  </button>
-                  <button 
-                    onClick={() => {
-                        setEditingStation(s);
-                        setFormData({
-                            petrol_stock: s.petrol_stock,
-                            diesel_stock: s.diesel_stock,
-                            last_supplied_date: s.last_supplied_date ? new Date(s.last_supplied_date).toISOString().split('T')[0] : '',
-                            last_supplied_petrol: s.last_supplied_petrol,
-                            last_supplied_diesel: s.last_supplied_diesel
-                        });
-                        setShowEditModal(true);
-                    }}
-                    className="p-2 text-blue-400 hover:bg-blue-500/10 rounded-lg transition cursor-pointer"
-                  >
-                    <Edit size={18} />
-                  </button>
-                </td>
+      {/* Main Table */}
+      <div className="bg-white/5 border border-white/10 rounded-3xl overflow-hidden shadow-xl animate-in slide-in-from-bottom-5 duration-500">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead>
+              <tr className="bg-white/10 text-gray-400 text-xs uppercase tracking-wider">
+                <th className="px-6 py-5">Station</th>
+                <th className="px-6 py-5">Location</th>
+                <th className="px-6 py-5">Petrol Stock (L)</th>
+                <th className="px-6 py-5">Diesel Stock (L)</th>
+                <th className="px-6 py-5">Last Delivery Details</th>
+                <th className="px-6 py-5 text-right">Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-white/10">
+              {paginatedStations.map(s => {
+                const isLowPetrol = Number(s.petrol_stock) <= 1000;
+                const isLowDiesel = Number(s.diesel_stock) <= 1000;
+                return (
+                  <tr key={s.station_id} className="hover:bg-white/5 transition group">
+                    <td className="px-6 py-4">
+                      <div className="font-semibold text-white">{s.name || "Station"}</div>
+                      <div className="font-mono text-xs text-gray-400">{s.station_id}</div>
+                    </td>
+                    <td className="px-6 py-4 text-gray-300 text-sm">{s.location || "N/A"}</td>
+                    
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <Droplets size={16} className={isLowPetrol ? "text-red-400 animate-pulse" : "text-fuchsia-400"} />
+                        <span className={`font-mono font-bold ${isLowPetrol ? "text-red-400" : "text-white"}`}>
+                          {Number(s.petrol_stock || 0).toLocaleString()} L
+                        </span>
+                      </div>
+                      {isLowPetrol && <span className="text-[10px] text-red-400 font-semibold uppercase">Low Petrol Stock</span>}
+                    </td>
 
-        {/* Pagination Bar */}
-        <div className="px-6 py-4 bg-white/[0.02] border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm">
-          <div className="flex flex-wrap items-center gap-3 text-gray-400">
-            <span>Rows per page:</span>
-            <select
-              value={rowsPerPage}
-              onChange={(e) => {
-                setRowsPerPage(Number(e.target.value));
-                setCurrentPage(1);
-              }}
-              className="bg-[#16213A] border border-white/10 rounded-lg px-2.5 py-1 text-white outline-none focus:border-fuchsia-500 cursor-pointer"
-            >
-              <option value={5}>5</option>
-              <option value={10}>10</option>
-              <option value={20}>20</option>
-              <option value={50}>50</option>
-            </select>
-            <span className="text-gray-400 text-xs">
-              Showing {totalStations === 0 ? 0 : startIndex + 1} - {Math.min(startIndex + rowsPerPage, totalStations)} of {totalStations} stations
-            </span>
-          </div>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <Droplets size={16} className={isLowDiesel ? "text-red-400 animate-pulse" : "text-blue-400"} />
+                        <span className={`font-mono font-bold ${isLowDiesel ? "text-red-400" : "text-white"}`}>
+                          {Number(s.diesel_stock || 0).toLocaleString()} L
+                        </span>
+                      </div>
+                      {isLowDiesel && <span className="text-[10px] text-red-400 font-semibold uppercase">Low Diesel Stock</span>}
+                    </td>
 
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-              className="px-3 py-1.5 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-white disabled:opacity-30 disabled:cursor-not-allowed transition flex items-center gap-1 cursor-pointer text-xs font-semibold"
-            >
-              <ChevronLeft size={16} /> Previous
-            </button>
-            
-            <div className="flex items-center gap-1">
-              {Array.from({ length: totalPages }, (_, i) => i + 1)
-                .filter(p => p === 1 || p === totalPages || (p >= currentPage - 1 && p <= currentPage + 1))
-                .map((p, idx, arr) => {
-                  const showEllipsis = idx > 0 && p - arr[idx - 1] > 1;
-                  return (
-                    <React.Fragment key={p}>
-                      {showEllipsis && <span className="px-1 text-gray-500">...</span>}
+                    <td className="px-6 py-4">
+                      {s.last_supplied_date ? (
+                        <div className="text-xs">
+                          <div className="flex items-center gap-1.5 text-gray-300">
+                            <Calendar size={13} className="text-gray-400" />
+                            {new Date(s.last_supplied_date).toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" })}
+                          </div>
+                          <div className="text-gray-400 font-mono text-[11px] mt-0.5">
+                            P: <span className="text-fuchsia-400 font-bold">{Number(s.last_supplied_petrol || 0).toLocaleString()}L</span> | D: <span className="text-blue-400 font-bold">{Number(s.last_supplied_diesel || 0).toLocaleString()}L</span>
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-gray-500 italic">No supply logged</span>
+                      )}
+                    </td>
+
+                    <td className="px-6 py-4 text-right flex justify-end gap-2">
                       <button
-                        onClick={() => setCurrentPage(p)}
-                        className={`w-8 h-8 rounded-lg text-xs font-bold transition cursor-pointer ${
-                          currentPage === p
-                            ? "bg-fuchsia-500 text-white shadow-lg shadow-fuchsia-500/30"
-                            : "bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white"
-                        }`}
+                        onClick={() => {
+                          setEditingStation(s);
+                          setFormData({
+                            petrol_stock: s.petrol_stock || 0,
+                            diesel_stock: s.diesel_stock || 0,
+                            last_supplied_date: s.last_supplied_date ? s.last_supplied_date.split("T")[0] : "",
+                            last_supplied_petrol: s.last_supplied_petrol || 0,
+                            last_supplied_diesel: s.last_supplied_diesel || 0
+                          });
+                          setShowEditModal(true);
+                        }}
+                        className="p-2 text-fuchsia-400 hover:bg-fuchsia-500/10 rounded-xl transition cursor-pointer"
+                        title="Update Stock Levels"
+                        aria-label="Update Stock Levels"
                       >
-                        {p}
+                        <Edit size={18} />
                       </button>
-                    </React.Fragment>
-                  );
-                })}
-            </div>
 
-            <button
-              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages}
-              className="px-3 py-1.5 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-white disabled:opacity-30 disabled:cursor-not-allowed transition flex items-center gap-1 cursor-pointer text-xs font-semibold"
-            >
-              Next <ChevronRight size={16} />
-            </button>
-          </div>
+                      <button
+                        onClick={() => {
+                          setHistoryStation(s);
+                          fetchHistory(s.station_id);
+                          setHistoryCurrentPage(1);
+                          setShowHistoryModal(true);
+                        }}
+                        className="p-2 text-blue-400 hover:bg-blue-500/10 rounded-xl transition cursor-pointer"
+                        title="View Supply Batch History"
+                        aria-label="View Supply History"
+                      >
+                        <Eye size={18} />
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
+
+        {/* Reusable Pagination */}
+        <Pagination
+          currentPage={currentPage}
+          totalItems={totalFiltered}
+          rowsPerPage={rowsPerPage}
+          onPageChange={setCurrentPage}
+        />
       </div>
 
-      {/* Edit Supply Modal */}
-      {showEditModal && editingStation && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[110] p-4">
-          <div className="bg-[#16213A] border border-white/10 w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="p-6 border-b border-white/10 flex justify-between items-center bg-white/5">
+      {/* Update Stock Modal */}
+      <Modal 
+        isOpen={showEditModal && !!editingStation} 
+        onClose={() => setShowEditModal(false)} 
+        title={`Adjust Stock: ${editingStation?.name || editingStation?.station_id}`}
+      >
+        {editingStation && (
+          <form onSubmit={handleUpdateStock} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
               <div>
-                <h3 className="text-xl font-bold text-blue-400">Manage Supply</h3>
-                <p className="text-xs text-gray-400 mt-1">{editingStation.name} ({editingStation.station_id})</p>
+                <label className="block text-[10px] font-bold text-gray-400 mb-2 uppercase tracking-widest">Current Petrol (L)</label>
+                <input 
+                  type="number"
+                  step="any"
+                  required 
+                  value={formData.petrol_stock} 
+                  onChange={(e) => setFormData({ ...formData, petrol_stock: e.target.value })} 
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-fuchsia-500" 
+                />
               </div>
-              <button onClick={() => setShowEditModal(false)} className="text-gray-500 hover:text-white transition cursor-pointer"><X size={20}/></button>
+              <div>
+                <label className="block text-[10px] font-bold text-gray-400 mb-2 uppercase tracking-widest">Current Diesel (L)</label>
+                <input 
+                  type="number"
+                  step="any"
+                  required 
+                  value={formData.diesel_stock} 
+                  onChange={(e) => setFormData({ ...formData, diesel_stock: e.target.value })} 
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500" 
+                />
+              </div>
             </div>
-            
-            <form onSubmit={handleUpdateSupply} className="p-6 space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-4">
-                  <h4 className="text-[10px] uppercase tracking-widest font-bold text-fuchsia-400 border-b border-white/5 pb-2">Current Stock</h4>
-                  <div>
-                    <label className="block text-[10px] font-bold text-gray-500 mb-2 uppercase">Petrol Stock (L)</label>
-                    <input type="number" required value={formData.petrol_stock} onChange={e => setFormData({...formData, petrol_stock: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 focus:outline-none focus:border-fuchsia-500 transition text-sm font-mono"/>
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-gray-500 mb-2 uppercase">Diesel Stock (L)</label>
-                    <input type="number" required value={formData.diesel_stock} onChange={e => setFormData({...formData, diesel_stock: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 focus:outline-none focus:border-blue-500 transition text-sm font-mono"/>
-                  </div>
-                </div>
 
-                <div className="space-y-4">
-                  <h4 className="text-[10px] uppercase tracking-widest font-bold text-emerald-400 border-b border-white/5 pb-2">Last Delivery</h4>
+            <div className="border-t border-white/10 pt-4 mt-4">
+              <span className="block text-xs font-bold text-fuchsia-400 mb-3">Latest Delivery Information</span>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-400 mb-2 uppercase tracking-widest">Delivery Date</label>
+                  <input 
+                    type="date" 
+                    value={formData.last_supplied_date} 
+                    onChange={(e) => setFormData({ ...formData, last_supplied_date: e.target.value })} 
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-fuchsia-500" 
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-[10px] font-bold text-gray-500 mb-2 uppercase">Petrol Supplied (L)</label>
-                    <input type="number" required value={formData.last_supplied_petrol} onChange={e => setFormData({...formData, last_supplied_petrol: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 focus:outline-none focus:border-emerald-500 transition text-sm font-mono"/>
+                    <label className="block text-[10px] font-bold text-gray-400 mb-2 uppercase tracking-widest">Delivered Petrol (L)</label>
+                    <input 
+                      type="number" 
+                      step="any"
+                      value={formData.last_supplied_petrol} 
+                      onChange={(e) => setFormData({ ...formData, last_supplied_petrol: e.target.value })} 
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-fuchsia-500" 
+                    />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-bold text-gray-500 mb-2 uppercase">Diesel Supplied (L)</label>
-                    <input type="number" required value={formData.last_supplied_diesel} onChange={e => setFormData({...formData, last_supplied_diesel: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 focus:outline-none focus:border-emerald-500 transition text-sm font-mono"/>
+                    <label className="block text-[10px] font-bold text-gray-400 mb-2 uppercase tracking-widest">Delivered Diesel (L)</label>
+                    <input 
+                      type="number" 
+                      step="any"
+                      value={formData.last_supplied_diesel} 
+                      onChange={(e) => setFormData({ ...formData, last_supplied_diesel: e.target.value })} 
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500" 
+                    />
                   </div>
                 </div>
               </div>
+            </div>
 
-              <div>
-                <label className="block text-[10px] font-bold text-gray-500 mb-2 uppercase tracking-widest">Supply Date</label>
-                <div className="relative">
-                  <Calendar size={16} className="absolute left-4 top-3 text-gray-400" />
-                  <input type="date" required value={formData.last_supplied_date} onChange={e => setFormData({...formData, last_supplied_date: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl pl-12 pr-4 py-2.5 focus:outline-none focus:border-white/30 transition text-sm"/>
-                </div>
-              </div>
-
-              <button className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 py-4 rounded-xl font-bold mt-4 shadow-xl shadow-blue-500/20 transition cursor-pointer flex items-center justify-center gap-2">
-                <Check size={20} /> Update Station Supply
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
+            <button 
+              type="submit" 
+              className="w-full bg-fuchsia-500 hover:bg-fuchsia-600 py-3.5 rounded-xl font-bold mt-4 shadow-lg shadow-fuchsia-500/20 transition cursor-pointer text-white"
+            >
+              Save Stock Levels
+            </button>
+          </form>
+        )}
+      </Modal>
 
       {/* History Modal */}
-      {showHistoryModal && historyStation && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[110] p-4">
-          <div className="bg-[#16213A] border border-white/10 w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="p-6 border-b border-white/10 flex justify-between items-center bg-white/5">
-              <div>
-                <h3 className="text-xl font-bold text-fuchsia-400 font-inter">Supply History</h3>
-                <p className="text-xs text-gray-400 mt-1">{historyStation.name} ({historyStation.station_id})</p>
-              </div>
-              <button 
-                onClick={() => setShowHistoryModal(false)} 
-                className="p-2 text-gray-500 hover:text-white transition cursor-pointer"
-              >
-                <X size={20}/>
-              </button>
+      <Modal 
+        isOpen={showHistoryModal && !!historyStation} 
+        onClose={() => setShowHistoryModal(false)} 
+        title={`Supply History: ${historyStation?.name || historyStation?.station_id}`}
+        maxWidth="max-w-2xl"
+      >
+        {loadingHistory ? (
+          <div className="flex justify-center py-10"><Fuel className="animate-spin text-fuchsia-500" size={32} /></div>
+        ) : supplyHistory.length === 0 ? (
+          <div className="text-center py-10">
+            <p className="text-gray-400 italic text-sm">No supply logs recorded for this station yet.</p>
+          </div>
+        ) : (
+          <div>
+            <div className="overflow-x-auto min-h-[220px]">
+              <table className="w-full text-left border-separate border-spacing-y-2">
+                <thead>
+                  <tr className="text-[10px] uppercase tracking-widest text-gray-400 border-b border-white/5">
+                    <th className="px-4 py-2">Date & Time</th>
+                    <th className="px-4 py-2 text-right text-fuchsia-400">Petrol (L)</th>
+                    <th className="px-4 py-2 text-right text-blue-400">Diesel (L)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginatedHistory.map((h) => (
+                    <tr key={h.id} className="bg-white/5 hover:bg-white/10 transition group">
+                      <td className="px-4 py-3 text-xs text-gray-300 rounded-l-xl">
+                        {new Date(h.supplied_at).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}
+                      </td>
+                      <td className="px-4 py-3 text-right font-mono text-fuchsia-300 text-sm">{Number(h.petrol_amount).toFixed(2)}<span className="text-[10px] opacity-50 ml-0.5">L</span></td>
+                      <td className="px-4 py-3 text-right font-mono text-blue-300 text-sm rounded-r-xl">{Number(h.diesel_amount).toFixed(2)}<span className="text-[10px] opacity-50 ml-0.5">L</span></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-            
-            <div className="p-6">
-              {loadingHistory ? (
-                <div className="flex justify-center p-10"><Fuel className="animate-spin text-fuchsia-500" /></div>
-              ) : supplyHistory.length === 0 ? (
-                <div className="text-center py-10">
-                  <p className="text-gray-500 italic">No supply records found for this station.</p>
-                </div>
-              ) : (
-                <>
-                  <div className="overflow-x-auto min-h-[220px]">
-                    <table className="w-full text-left border-separate border-spacing-y-2">
-                      <thead>
-                        <tr className="text-[10px] uppercase tracking-widest text-gray-500 border-b border-white/5">
-                          <th className="px-4 py-2">Date & Time</th>
-                          <th className="px-4 py-2 text-right text-fuchsia-400">Petrol (L)</th>
-                          <th className="px-4 py-2 text-right text-blue-400">Diesel (L)</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(() => {
-                          const startIdx = (historyCurrentPage - 1) * historyRowsPerPage;
-                          return supplyHistory.slice(startIdx, startIdx + historyRowsPerPage).map(h => (
-                            <tr key={h.id} className="bg-white/5 hover:bg-white/10 transition group">
-                              <td className="px-4 py-3 text-xs text-gray-300 rounded-l-xl">
-                                {new Date(h.supplied_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
-                              </td>
-                              <td className="px-4 py-3 text-right font-mono text-fuchsia-300 text-sm">{Number(h.petrol_amount).toFixed(2)}<span className="text-[10px] opacity-50 ml-0.5">L</span></td>
-                              <td className="px-4 py-3 text-right font-mono text-blue-300 text-sm rounded-r-xl">{Number(h.diesel_amount).toFixed(2)}<span className="text-[10px] opacity-50 ml-0.5">L</span></td>
-                            </tr>
-                          ));
-                        })()}
-                      </tbody>
-                    </table>
-                  </div>
 
-                  {/* History Pagination Bar */}
-                  {(() => {
-                    const totalHistory = supplyHistory.length;
-                    const totalHistoryPages = Math.ceil(totalHistory / historyRowsPerPage) || 1;
-                    const startIdx = (historyCurrentPage - 1) * historyRowsPerPage;
-
-                    return (
-                      <div className="pt-4 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs mt-3">
-                        <div className="flex flex-wrap items-center gap-2 text-gray-400">
-                          <span>Rows:</span>
-                          <select
-                            value={historyRowsPerPage}
-                            onChange={(e) => {
-                              setHistoryRowsPerPage(Number(e.target.value));
-                              setHistoryCurrentPage(1);
-                            }}
-                            className="bg-[#0B1220] border border-white/10 rounded-lg px-2 py-1 text-white outline-none focus:border-fuchsia-500 cursor-pointer"
-                          >
-                            <option value={5}>5</option>
-                            <option value={10}>10</option>
-                            <option value={20}>20</option>
-                          </select>
-                          <span className="text-gray-400">
-                            Showing {totalHistory === 0 ? 0 : startIdx + 1} - {Math.min(startIdx + historyRowsPerPage, totalHistory)} of {totalHistory}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-1.5">
-                          <button
-                            onClick={() => setHistoryCurrentPage(p => Math.max(1, p - 1))}
-                            disabled={historyCurrentPage === 1}
-                            className="px-2.5 py-1 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-white disabled:opacity-30 disabled:cursor-not-allowed transition flex items-center gap-1 cursor-pointer font-semibold"
-                          >
-                            <ChevronLeft size={14} /> Prev
-                          </button>
-
-                          <div className="flex items-center gap-1">
-                            {Array.from({ length: totalHistoryPages }, (_, i) => i + 1)
-                              .filter(p => p === 1 || p === totalHistoryPages || (p >= historyCurrentPage - 1 && p <= historyCurrentPage + 1))
-                              .map((p, idx, arr) => {
-                                const showEllipsis = idx > 0 && p - arr[idx - 1] > 1;
-                                return (
-                                  <React.Fragment key={p}>
-                                    {showEllipsis && <span className="px-1 text-gray-500">...</span>}
-                                    <button
-                                      onClick={() => setHistoryCurrentPage(p)}
-                                      className={`w-7 h-7 rounded-lg text-xs font-bold transition cursor-pointer ${
-                                        historyCurrentPage === p
-                                          ? "bg-fuchsia-500 text-white shadow-lg shadow-fuchsia-500/30"
-                                          : "bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white"
-                                      }`}
-                                    >
-                                      {p}
-                                    </button>
-                                  </React.Fragment>
-                                );
-                              })}
-                          </div>
-
-                          <button
-                            onClick={() => setHistoryCurrentPage(p => Math.min(totalHistoryPages, p + 1))}
-                            disabled={historyCurrentPage === totalHistoryPages || totalHistory === 0}
-                            className="px-2.5 py-1 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-white disabled:opacity-30 disabled:cursor-not-allowed transition flex items-center gap-1 cursor-pointer font-semibold"
-                          >
-                            Next <ChevronRight size={14} />
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })()}
-                </>
-              )}
-            </div>
+            {/* Sub-pagination for modal history */}
+            <Pagination
+              currentPage={historyCurrentPage}
+              totalItems={totalHistory}
+              rowsPerPage={historyRowsPerPage}
+              onPageChange={setHistoryCurrentPage}
+            />
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
 
-      {toast && (
-        <div className={`fixed bottom-8 right-8 max-w-sm p-4 rounded-2xl shadow-2xl border flex items-start gap-3.5 z-[120] animate-in slide-in-from-right-5 duration-300 bg-[#16213A] ${
-          toast.type === 'success' ? 'border-emerald-500/50 shadow-emerald-950/50' : 'border-red-500/50 shadow-red-950/50'
-        }`}>
-          <div className={`p-2 rounded-xl mt-0.5 shrink-0 ${toast.type === 'success' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>
-            <Check size={18} strokeWidth={2.5} />
-          </div>
-          <div className="flex-1 min-w-0">
-            <h4 className={`font-bold text-sm mb-0.5 ${toast.type === 'success' ? 'text-emerald-400' : 'text-red-400'}`}>
-              {toast.title}
-            </h4>
-            <p className="text-xs text-gray-200 leading-relaxed">{toast.message}</p>
-          </div>
-          <button onClick={() => setToast(null)} className="text-gray-400 hover:text-white transition cursor-pointer p-1 shrink-0">
-            <X size={16} />
-          </button>
-        </div>
-      )}
+      {/* Toast Notification */}
+      <Toast toast={toast} onClose={() => setToast(null)} />
     </div>
   );
 }

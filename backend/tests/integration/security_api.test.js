@@ -114,6 +114,7 @@ async function runIntegrationTests() {
   assert.strictEqual(a4.status, 429, "Post-lockout attempts must return 429 Too Many Requests");
 
   console.log("  ✔ All Security & Integration Tests Passed (7/7)");
+  process.exit(0);
 }
 
 runIntegrationTests().catch((err) => {
