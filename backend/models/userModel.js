@@ -1,6 +1,17 @@
+/**
+ * @file userModel.js
+ * @description Data access layer for user accounts, vehicle registrations, and quota calculations.
+ * @module models/userModel
+ */
+
 const db = require("../config/db");
 const QUERY_TIMEOUT_MS = 5000;
 
+/**
+ * Find user record by email address.
+ * @param {string} email - Email address of the user.
+ * @returns {Promise<{id: number, email: string, nic: string, created_at: string}|null>}
+ */
 const findUserByEmail = (email) =>
   new Promise((resolve, reject) => {
     db.query(
@@ -16,6 +27,17 @@ const findUserByEmail = (email) =>
     );
   });
 
+/**
+ * Update user demographic information by email.
+ * @param {object} userData - User demographic fields.
+ * @param {string} userData.nic - National Identity Card number.
+ * @param {string} userData.firstName - User's first name.
+ * @param {string} userData.lastName - User's last name.
+ * @param {string} userData.address - Residential address.
+ * @param {string} userData.phoneNumber - Contact phone number.
+ * @param {string} userData.email - User's registered email address.
+ * @returns {Promise<number>} Number of affected rows.
+ */
 const updateUserByEmail = (userData) =>
   new Promise((resolve, reject) => {
     const { nic, firstName, lastName, address, phoneNumber, email } = userData;
@@ -34,6 +56,11 @@ const updateUserByEmail = (userData) =>
     );
   });
 
+/**
+ * Find user record by National Identity Card (NIC).
+ * @param {string} nic - User NIC number.
+ * @returns {Promise<{id: number, email: string}|null>}
+ */
 const findUserByNic = (nic) =>
   new Promise((resolve, reject) => {
     db.query(
@@ -49,6 +76,11 @@ const findUserByNic = (nic) =>
     );
   });
 
+/**
+ * Create a new user profile with full details.
+ * @param {object} userData - Full user registration data.
+ * @returns {Promise<number>} Created user ID (insertId).
+ */
 const createUserWithDetails = (userData) =>
   new Promise((resolve, reject) => {
     const { nic, firstName, lastName, address, phoneNumber, email } = userData;
@@ -66,6 +98,16 @@ const createUserWithDetails = (userData) =>
     );
   });
 
+/**
+ * Register a vehicle linked to a specific user.
+ * @param {object} vehicleData - Vehicle registration parameters.
+ * @param {number} vehicleData.userId - Owning user ID.
+ * @param {string} vehicleData.vehicleNumber - Vehicle license plate number.
+ * @param {string} vehicleData.chassisNo - Chassis / VIN number.
+ * @param {string} vehicleData.vehicleType - Vehicle category (e.g. Car, Van, Bike).
+ * @param {string} vehicleData.fuelType - Fuel type (Petrol / Diesel).
+ * @returns {Promise<number>} Created vehicle ID (insertId).
+ */
 const createVehicle = (vehicleData) =>
   new Promise((resolve, reject) => {
     const {
@@ -89,6 +131,11 @@ const createVehicle = (vehicleData) =>
     );
   });
 
+/**
+ * Look up existing user by email or create a placeholder user account.
+ * @param {string} email - Email address.
+ * @returns {Promise<{id: number, email: string}>}
+ */
 const findOrCreateUserByEmail = (email) =>
   new Promise((resolve, reject) => {
     db.query(
@@ -119,6 +166,11 @@ const findOrCreateUserByEmail = (email) =>
     );
   });
 
+/**
+ * Retrieve all vehicles associated with a user ID.
+ * @param {number} userId - User ID.
+ * @returns {Promise<Array<object>>} List of vehicles.
+ */
 const getVehiclesByUserId = (userId) =>
   new Promise((resolve, reject) => {
     db.query(
@@ -134,6 +186,12 @@ const getVehiclesByUserId = (userId) =>
     );
   });
 
+/**
+ * Retrieve user details, vehicle specs, and active weekly quota calculations.
+ * @param {number} userId - User ID.
+ * @param {string} [vehicleNumber] - Specific vehicle number filter (optional).
+ * @returns {Promise<object|null>} Complete user quota profile.
+ */
 const getUserWithVehicleAndQuota = (userId, vehicleNumber = null) =>
   new Promise((resolve, reject) => {
     let query = `
@@ -164,6 +222,12 @@ const getUserWithVehicleAndQuota = (userId, vehicleNumber = null) =>
     });
   });
 
+/**
+ * Update vehicle details by vehicle ID.
+ * @param {number} vehicleId - Target vehicle ID.
+ * @param {object} vehicleData - Updated vehicle properties.
+ * @returns {Promise<number>} Affected rows count.
+ */
 const updateVehicleDetails = (vehicleId, vehicleData) =>
   new Promise((resolve, reject) => {
     const { vehicleNumber, chassisNo, vehicleType, fuelType } = vehicleData;
@@ -182,6 +246,12 @@ const updateVehicleDetails = (vehicleId, vehicleData) =>
     );
   });
 
+/**
+ * Sets fuel reservation expiry on a vehicle.
+ * @param {number} vehicleId - Target vehicle ID.
+ * @param {string|Date} reservedUntil - Reservation expiry timestamp.
+ * @returns {Promise<number>} Affected rows count.
+ */
 const setFuelReservation = (vehicleId, reservedUntil) =>
   new Promise((resolve, reject) => {
     const query = "UPDATE vehicles SET reserved_until = ? WHERE id = ?";
