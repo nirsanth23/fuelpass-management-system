@@ -32,7 +32,7 @@ export default function FuelStationDashboard() {
   const [supplyFeedback, setSupplyFeedback] = useState({ type: "", message: "" });
   const [isSubmittingSupply, setIsSubmittingSupply] = useState(false);
 
-  const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "http://localhost:8081").replace(/\/$/, "");
+  const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5050").replace(/\/$/, "");
   const stationId = localStorage.getItem("stationId");
   const token = localStorage.getItem("stationToken");
 

@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { X } from "lucide-react";
 
 const API_BASE_URL =
-  (import.meta.env.VITE_API_BASE_URL || "http://localhost:8081").replace(/\/$/, "");
+  (import.meta.env.VITE_API_BASE_URL || "http://localhost:5050").replace(/\/$/, "");
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const REQUEST_TIMEOUT_MS = 10000;

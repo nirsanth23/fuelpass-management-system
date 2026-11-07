@@ -34,7 +34,7 @@ export default function UserDashboard() {
       return;
     }
 
-    const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "http://localhost:8081").replace(/\/$/, "");
+    const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5050").replace(/\/$/, "");
 
     try {
       // Fetch user data with optional vehicle filter
@@ -437,7 +437,7 @@ export default function UserDashboard() {
                         nextEnd.setDate(nextEnd.getDate() + 7);
                         dbDate = nextEnd.toISOString().split('T')[0];
                       }
-                      const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "http://localhost:8081").replace(/\/$/, "");
+                      const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5050").replace(/\/$/, "");
                       const token = localStorage.getItem("fuelpass_token");
                       try {
                         const response = await fetch(`${API_BASE_URL}/api/auth/reserve-fuel`, {

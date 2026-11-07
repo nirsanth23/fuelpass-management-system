@@ -5,7 +5,7 @@ import { X, Lock, Key, ShieldCheck, CheckCircle2, Eye, EyeOff, AlertCircle } fro
 export default function FuelStationLogin() {
   const navigate = useNavigate();
 
-  const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "http://localhost:8081").replace(/\/$/, "");
+  const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5050").replace(/\/$/, "");
 
   // Login State
   const [username, setUsername] = useState("");

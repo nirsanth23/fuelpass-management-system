@@ -4,7 +4,7 @@ import { FileText, Download, Loader2, CheckCircle2 } from "lucide-react";
 
 export async function generateMonthlyReportPDF() {
   const API_BASE_URL = (
-    import.meta.env.VITE_API_BASE_URL || "http://localhost:8081"
+    import.meta.env.VITE_API_BASE_URL || "http://localhost:5050"
   ).replace(/\/$/, "");
 
   const formatNumber = (num, decimals = 2) => {
