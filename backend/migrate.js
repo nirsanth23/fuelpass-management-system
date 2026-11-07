@@ -229,6 +229,31 @@ async function migrate() {
     await addColumnIfNotExists('fuel_supply_history', 'reference_no', 'VARCHAR(50)');
     console.log("Fuel supply history table created/verified.");
 
+    await addColumnIfNotExists('vehicles', 'carried_forward_quota', 'DECIMAL(10, 2) DEFAULT 0.00');
+    console.log("Vehicles carried_forward_quota column checked/added.");
+
+    const createQuotaResetLogsTable = `
+      CREATE TABLE IF NOT EXISTS quota_reset_logs (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        reset_type ENUM('AUTOMATIC', 'MANUAL') DEFAULT 'AUTOMATIC',
+        vehicles_processed INT DEFAULT 0,
+        vehicles_carried_forward INT DEFAULT 0,
+        total_litres_carried DECIMAL(10, 2) DEFAULT 0.00,
+        expired_reservations_cleared INT DEFAULT 0,
+        execution_duration_ms INT DEFAULT 0,
+        status ENUM('SUCCESS', 'FAILED') DEFAULT 'SUCCESS',
+        error_message TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `;
+    await new Promise((resolve, reject) => {
+      db.query(createQuotaResetLogsTable, (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+    console.log("Quota reset logs table created/verified.");
+
     const seedFuelStations = async () => {
       // Clear existing stations to ensure we have exactly the set we want
       await new Promise((resolve) => {

@@ -93,4 +93,11 @@ app.use("/api/station", stationRoutes);
 const PORT = process.env.PORT || 5050;
 app.listen(PORT, () => {
   console.log(`Enterprise FuelPass Server running securely on port ${PORT}`);
+  // Start automated weekly quota renewal scheduler
+  try {
+    const { startWeeklyQuotaCron } = require("./services/quotaScheduler");
+    startWeeklyQuotaCron();
+  } catch (err) {
+    console.error("Warning: Quota scheduler could not start:", err.message);
+  }
 });

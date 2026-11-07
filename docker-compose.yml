@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  # 1. MySQL 8.0 Database Service
+  mysql:
+    image: mysql:8.0
+    container_name: fuelpass-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: REDACTED
+      MYSQL_DATABASE: fuelpass
+      MYSQL_USER: fueluser
+      MYSQL_PASSWORD: REDACTED
+    ports:
+      - "3307:3306" # Mapped to 3307 on host to avoid port 3306 conflicts with local macOS MySQL
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - fuelpass-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pREDACTED"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # 2. Express Backend API Service
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: fuelpass-backend
+    restart: always
+    environment:
+      PORT: 5050
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USER: fueluser
+      DB_PASSWORD: REDACTED
+      DB_NAME: fuelpass
+      JWT_SECRET: REDACTED
+      CLIENT_URL: http://localhost:80,http://localhost:5173
+    ports:
+      - "5050:5050"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - fuelpass-network
+
+  # 3. React Frontend Service (High-Performance Nginx SPA)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: fuelpass-frontend
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - fuelpass-network
+
+volumes:
+  mysql_data:
+    driver: local
+
+networks:
+  fuelpass-network:
+    driver: bridge
+

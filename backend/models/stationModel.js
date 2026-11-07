@@ -274,6 +274,7 @@ const dispenseFuel = ({ stationId, vehicleNumber, fuelType, amount }) => {
           // 2. Lock vehicle record and check weekly quota usage
           const quotaQuery = `
             SELECT v.id AS vehicle_id, v.user_id,
+                   COALESCE(v.carried_forward_quota, 0.00) AS carried_forward_quota,
                    COALESCE(fqr.weekly_limit, 20.00) AS weekly_limit,
                    COALESCE((
                      SELECT SUM(amount) FROM fuel_transactions 
@@ -294,7 +295,8 @@ const dispenseFuel = ({ stationId, vehicleNumber, fuelType, amount }) => {
             }
 
             const vehicleInfo = quotaRows[0];
-            const remainingQuota = parseFloat(vehicleInfo.weekly_limit) - parseFloat(vehicleInfo.used_quota);
+            const totalAllowedQuota = parseFloat(vehicleInfo.weekly_limit) + parseFloat(vehicleInfo.carried_forward_quota || 0);
+            const remainingQuota = totalAllowedQuota - parseFloat(vehicleInfo.used_quota);
 
             if (amount > remainingQuota) {
               return conn.rollback(() => {
