@@ -1,8 +1,6 @@
 import React, { useState } from "react";
-import pdfMake from "pdfmake/build/pdfmake";
-import pdfFonts from "pdfmake/build/vfs_fonts";
-
-pdfMake.vfs = pdfFonts.vfs;
+import { getPdfMake } from "../../utils/pdfLoader";
+import { FileText, Download, Loader2, CheckCircle2 } from "lucide-react";
 
 export async function generateMonthlyReportPDF() {
   const API_BASE_URL = (
@@ -418,6 +416,7 @@ export async function generateMonthlyReportPDF() {
       defaultStyle: { fontSize: 11 },
     };
 
+    const pdfMake = await getPdfMake();
     pdfMake.createPdf(docDefinition).download("Monthly_Fuel_Report.pdf");
   } catch (err) {
     alert("Failed to generate report.");
@@ -427,11 +426,64 @@ export async function generateMonthlyReportPDF() {
 
 export default function MonthlyReportGenerator() {
   const [loading, setLoading] = useState(false);
+  const [downloaded, setDownloaded] = useState(false);
 
   const handleGenerateReport = async () => {
     setLoading(true);
-    await generateMonthlyReportPDF();
-    setLoading(false);
+    try {
+      await generateMonthlyReportPDF();
+      setDownloaded(true);
+      setTimeout(() => setDownloaded(false), 4000);
+    } finally {
+      setLoading(false);
+    }
   };
 
+  return (
+    <div className="p-8 max-w-4xl mx-auto space-y-6">
+      <div className="border-b border-slate-800 pb-5">
+        <h1 className="text-2xl font-bold text-white flex items-center gap-3">
+          <FileText className="w-7 h-7 text-cyan-400" />
+          Monthly Fuel Quota & Distribution Report
+        </h1>
+        <p className="text-sm text-slate-400 mt-1">
+          Export an official ministerial audit report of fuel distributions, quotas, and station inventories.
+        </p>
+      </div>
+
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl">
+        <div className="space-y-2">
+          <h2 className="text-lg font-semibold text-slate-200">
+            Generate Comprehensive Audit PDF
+          </h2>
+          <p className="text-sm text-slate-400 max-w-md">
+            This report fetches real-time stock balances across all registered fuel stations, active vehicle quotas, and transaction histories.
+          </p>
+        </div>
+
+        <button
+          onClick={handleGenerateReport}
+          disabled={loading}
+          className="flex items-center gap-3 px-6 py-3.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-semibold shadow-lg shadow-cyan-500/20 disabled:opacity-50 transition-all cursor-pointer whitespace-nowrap"
+        >
+          {loading ? (
+            <>
+              <Loader2 className="w-5 h-5 animate-spin" />
+              Compiling Report...
+            </>
+          ) : downloaded ? (
+            <>
+              <CheckCircle2 className="w-5 h-5 text-emerald-300" />
+              Report Downloaded!
+            </>
+          ) : (
+            <>
+              <Download className="w-5 h-5" />
+              Download Official PDF
+            </>
+          )}
+        </button>
+      </div>
+    </div>
+  );
 }

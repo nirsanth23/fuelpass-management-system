@@ -1,10 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Fuel, Calendar, Car, AlertCircle, LogOut, User, Edit, X, Check, ChevronDown, Plus, Download, Loader2 } from "lucide-react";
-import pdfMake from "pdfmake/build/pdfmake";
-import pdfFonts from "pdfmake/build/vfs_fonts";
-
-pdfMake.vfs = pdfFonts.vfs;
+import { getPdfMake } from "../../utils/pdfLoader";
 
 const getBase64ImageFromUrl = async (imageUrl) => {
   const res = await fetch(imageUrl);
@@ -230,6 +227,7 @@ export default function UserDashboard() {
         ],
       };
 
+      const pdfMake = await getPdfMake();
       pdfMake.createPdf(docDefinition).download(`FuelPass_${userData.vehicle_number}.pdf`);
     } catch (err) {
       console.error("PDF generation failed:", err);
