@@ -1,29 +1,27 @@
-version: '3.8'
-
 services:
-  # 1. MySQL 8.0 Database Service
   mysql:
     image: mysql:8.0
     container_name: fuelpass-mysql
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: REDACTED
-      MYSQL_DATABASE: fuelpass
-      MYSQL_USER: fueluser
-      MYSQL_PASSWORD: REDACTED
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Missing MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-fuelpass}
+      MYSQL_USER: ${MYSQL_USER:-fueluser}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Missing MYSQL_PASSWORD}
     ports:
-      - "3307:3306" # Mapped to 3307 on host to avoid port 3306 conflicts with local macOS MySQL
+      - "3307:3306"
     volumes:
       - mysql_data:/var/lib/mysql
     networks:
       - fuelpass-network
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pREDACTED"]
+      test:
+        - CMD-SHELL
+        - 'mysqladmin ping -h 127.0.0.1 -u root -p"$${MYSQL_ROOT_PASSWORD}" --silent'
       interval: 5s
       timeout: 5s
       retries: 10
 
-  # 2. Express Backend API Service
   backend:
     build:
       context: ./backend
@@ -31,14 +29,19 @@ services:
     container_name: fuelpass-backend
     restart: always
     environment:
+      NODE_ENV: production
       PORT: 5050
       DB_HOST: mysql
       DB_PORT: 3306
-      DB_USER: fueluser
-      DB_PASSWORD: REDACTED
-      DB_NAME: fuelpass
-      JWT_SECRET: REDACTED
-      CLIENT_URL: http://localhost:80,http://localhost:5173
+      DB_USER: ${MYSQL_USER:-fueluser}
+      DB_PASSWORD: ${MYSQL_PASSWORD:?Missing MYSQL_PASSWORD}
+      DB_NAME: ${MYSQL_DATABASE:-fuelpass}
+      DB_SSL: "false"
+      JWT_SECRET: ${JWT_SECRET:?Missing JWT_SECRET}
+      QR_SECRET: ${QR_SECRET:?Missing QR_SECRET}
+      EMAIL_USER: ${EMAIL_USER:?Missing EMAIL_USER}
+      EMAIL_PASS: ${EMAIL_PASS:?Missing EMAIL_PASS}
+      ALLOWED_ORIGINS: http://localhost:8080,http://localhost:5173
     ports:
       - "5050:5050"
     depends_on:
@@ -47,15 +50,16 @@ services:
     networks:
       - fuelpass-network
 
-  # 3. React Frontend Service (High-Performance Nginx SPA)
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: http://localhost:5050
     container_name: fuelpass-frontend
     restart: always
     ports:
-      - "80:80"
+      - "8080:80"
     depends_on:
       - backend
     networks:
@@ -68,4 +72,3 @@ volumes:
 networks:
   fuelpass-network:
     driver: bridge
-
