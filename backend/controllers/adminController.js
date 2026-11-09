@@ -102,7 +102,7 @@ const approvePasswordReset = async (req, res) => {
     return res.status(400).json({ message: "Notification ID and Email are required." });
   }
 
-  const newPassword = Math.floor(100000 + Math.random() * 900000).toString();
+  const newPassword = require("crypto").randomBytes(24).toString("base64url");
 
   try {
     const notification = await adminModel.getNotificationById(id);
@@ -275,7 +275,7 @@ const createStation = async (req, res) => {
     return res.status(400).json({ message: "Station ID, Name, Location, and Email are required." });
   }
 
-  const tempPassword = Math.floor(100000 + Math.random() * 900000).toString();
+  const tempPassword = require("crypto").randomBytes(24).toString("base64url");
 
   try {
     const hashedPassword = await hashPassword(tempPassword);

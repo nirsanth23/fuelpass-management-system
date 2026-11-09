@@ -336,7 +336,7 @@ const sendStationCredentialsEmail = async (to, stationId, stationName, password)
                     🔒 First-Time Security Policy:
                   </div>
                   <div style="font-size: 11px; color: #94A3B8; margin-top: 3px; line-height: 1.5;">
-                    When you log in with this 6-digit temporary password, you will be prompted immediately to set your new permanent password.
+                    When you log in with your temporary password, you will be prompted immediately to set your new permanent password.
                   </div>
                 </div>
               </td>
