@@ -9,7 +9,7 @@ services:
       MYSQL_USER: ${MYSQL_USER:-fueluser}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Missing MYSQL_PASSWORD}
     ports:
-      - "3307:3306"
+      - "127.0.0.1:3307:3306"
     volumes:
       - mysql_data:/var/lib/mysql
     networks:
@@ -38,12 +38,14 @@ services:
       DB_NAME: ${MYSQL_DATABASE:-fuelpass}
       DB_SSL: "false"
       JWT_SECRET: ${JWT_SECRET:?Missing JWT_SECRET}
+      ADMIN_USER: ${ADMIN_USER:?ADMIN_USER is required}
+      ADMIN_PASS: ${ADMIN_PASS:?ADMIN_PASS is required}
       QR_SECRET: ${QR_SECRET:?Missing QR_SECRET}
       EMAIL_USER: ${EMAIL_USER:?Missing EMAIL_USER}
       EMAIL_PASS: ${EMAIL_PASS:?Missing EMAIL_PASS}
-      ALLOWED_ORIGINS: http://localhost:8080,http://localhost:5173
+      ALLOWED_ORIGINS: http://3.25.207.68
     ports:
-      - "5050:5050"
+      - "127.0.0.1:5050:5050"
     depends_on:
       mysql:
         condition: service_healthy
@@ -55,11 +57,11 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        VITE_API_BASE_URL: http://localhost:5050
+        VITE_API_BASE_URL: http://3.25.207.68
     container_name: fuelpass-frontend
     restart: always
     ports:
-      - "8080:80"
+      - "80:80"
     depends_on:
       - backend
     networks:

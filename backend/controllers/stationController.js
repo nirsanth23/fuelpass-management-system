@@ -17,7 +17,7 @@ const { sendSuccess, sendError } = require("../utils/responseHelper");
  */
 const extractVerifiedVehicle = (qrPayload, fallbackVehicle) => {
   if (!qrPayload) {
-    return { vehicleNumber: fallbackVehicle || null, isValid: true };
+    return { vehicleNumber: null, isValid: false, error: "Signed QR pass is required." };
   }
 
   try {
@@ -34,9 +34,9 @@ const extractVerifiedVehicle = (qrPayload, fallbackVehicle) => {
       }
       return { vehicleNumber: data.v, isValid: true };
     }
-    return { vehicleNumber: typeof qrPayload === "string" ? qrPayload : fallbackVehicle, isValid: true };
+    return { vehicleNumber: null, isValid: false, error: "Valid signed QR pass is required." };
   } catch (_) {
-    return { vehicleNumber: typeof qrPayload === "string" ? qrPayload : fallbackVehicle, isValid: true };
+    return { vehicleNumber: null, isValid: false, error: "Valid signed QR pass is required." };
   }
 };
 
@@ -207,12 +207,10 @@ const dispenseFuel = async (req, res) => {
     return sendError(res, "Vehicle number, fuel type, and valid amount (> 0) are required.", 400);
   }
 
-  // Cryptographic Signature verification if QR is provided
-  if (qrPayload) {
-    const verification = extractVerifiedVehicle(qrPayload, vehicleNumber);
-    if (!verification.isValid) {
-      return sendError(res, verification.error, 400);
-    }
+  // Require a cryptographically verified QR pass before dispensing.
+  const verification = extractVerifiedVehicle(qrPayload, vehicleNumber);
+  if (!verification.isValid || verification.vehicleNumber !== vehicleNumber) {
+    return sendError(res, "Valid signed QR pass matching the vehicle is required.", 400);
   }
 
   try {
